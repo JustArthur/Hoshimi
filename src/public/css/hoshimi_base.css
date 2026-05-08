@@ -1,0 +1,839 @@
+/* ============================================================
+   HOSHIMI (星見) — Base CSS
+   Palette : #F7D622 (accent) · #282828 (fond) · #FFFFFF · #848484
+   Max-width : 1400px
+   Accent dynamique : var(--color-accent) surchargé par JS
+      depuis coverImage.color du JSON AniList
+   ============================================================ */
+
+/* ----------------------------------------------------------------
+   1. GOOGLE FONTS
+   ---------------------------------------------------------------- */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Noto+Sans+JP:wght@300;400;700&display=swap');
+
+/* ----------------------------------------------------------------
+   2. VARIABLES GLOBALES
+   ---------------------------------------------------------------- */
+:root {
+    /* Palette fixe */
+    --color-bg: #282828;
+    --color-bg-card: #1e1e1e;
+    --color-bg-elevated: #323232;
+    --color-surface: #3a3a3a;
+
+    --color-text: #FFFFFF;
+    --color-text-muted: #848484;
+    --color-text-soft: #b0b0b0;
+
+    --color-border: rgba(255, 255, 255, 0.08);
+    --color-border-soft: rgba(255, 255, 255, 0.04);
+
+    /* Accent — remplacé dynamiquement par JS selon l'anime */
+    --color-accent: #F7D622;
+    --color-accent-rgb: 247, 214, 34;
+    /* pour les rgba() */
+    --color-accent-dim: rgba(247, 214, 34, 0.15);
+    --color-accent-glow: rgba(247, 214, 34, 0.25);
+
+    /* Typographie */
+    --font-main: 'Outfit', 'Noto Sans JP', sans-serif;
+    --font-jp: 'Noto Sans JP', sans-serif;
+
+    /* Layout */
+    --max-width: 1400px;
+    --gutter: clamp(16px, 4vw, 48px);
+    --radius-sm: 6px;
+    --radius-md: 12px;
+    --radius-lg: 20px;
+    --radius-xl: 32px;
+
+    /* Transitions */
+    --transition-fast: 0.15s ease;
+    --transition-base: 0.25s ease;
+    --transition-slow: 0.4s ease;
+
+    /* Ombres */
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, .4);
+    --shadow-md: 0 4px 20px rgba(0, 0, 0, .5);
+    --shadow-lg: 0 8px 40px rgba(0, 0, 0, .6);
+    --shadow-accent: 0 0 20px var(--color-accent-glow);
+}
+
+/* ----------------------------------------------------------------
+   3. RESET & BASE
+   ---------------------------------------------------------------- */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+}
+
+html {
+    font-size: 16px;
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+}
+
+body {
+    font-family: var(--font-main);
+    font-weight: 400;
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    line-height: 1.6;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+img,
+video {
+    display: block;
+    max-width: 100%;
+}
+
+a {
+    color: inherit;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+ul,
+ol {
+    list-style: none;
+}
+
+button {
+    font-family: inherit;
+    cursor: pointer;
+    border: none;
+    background: none;
+}
+
+input,
+select,
+textarea {
+    font-family: inherit;
+    font-size: inherit;
+}
+
+/* ----------------------------------------------------------------
+   4. CONTENEUR PRINCIPAL
+   ---------------------------------------------------------------- */
+.container {
+    width: 100%;
+    max-width: var(--max-width);
+    margin-inline: auto;
+    padding-inline: var(--gutter);
+}
+
+/* ----------------------------------------------------------------
+   5. TYPOGRAPHIE
+   ---------------------------------------------------------------- */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+}
+
+h1 {
+    font-size: clamp(2rem, 5vw, 3.5rem);
+}
+
+h2 {
+    font-size: clamp(1.5rem, 3vw, 2.25rem);
+}
+
+h3 {
+    font-size: clamp(1.2rem, 2vw, 1.5rem);
+}
+
+h4 {
+    font-size: 1.125rem;
+}
+
+.text-muted {
+    color: var(--color-text-muted);
+}
+
+.text-soft {
+    color: var(--color-text-soft);
+}
+
+.text-accent {
+    color: var(--color-accent);
+}
+
+.text-jp {
+    font-family: var(--font-jp);
+    font-weight: 300;
+    letter-spacing: 0.05em;
+}
+
+/* ----------------------------------------------------------------
+   6. HEADER / NAVBAR
+   ---------------------------------------------------------------- */
+.navbar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(40, 40, 40, 0.85);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--color-border);
+    height: 64px;
+    display: flex;
+    align-items: center;
+}
+
+.navbar__inner {
+    display: flex;
+    align-items: center;
+    gap: 32px;
+    width: 100%;
+    max-width: var(--max-width);
+    margin-inline: auto;
+    padding-inline: var(--gutter);
+}
+
+.navbar__logo {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--color-accent);
+    letter-spacing: -0.03em;
+    flex-shrink: 0;
+    transition: opacity var(--transition-fast);
+}
+
+.navbar__logo:hover {
+    opacity: 0.8;
+}
+
+.navbar__logo span {
+    font-family: var(--font-jp);
+    font-weight: 300;
+    font-size: 0.8em;
+    color: var(--color-text-muted);
+    margin-left: 6px;
+}
+
+.navbar__nav {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex: 1;
+}
+
+.navbar__link {
+    padding: 6px 14px;
+    border-radius: var(--radius-sm);
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--color-text-muted);
+    transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+.navbar__link:hover,
+.navbar__link.active {
+    color: var(--color-text);
+    background: var(--color-surface);
+}
+
+.navbar__link.active {
+    color: var(--color-accent);
+}
+
+.navbar__search {
+    margin-left: auto;
+}
+
+/* ----------------------------------------------------------------
+   7. BARRE DE RECHERCHE
+   ---------------------------------------------------------------- */
+.search-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-xl);
+    padding: 6px 16px;
+    width: 280px;
+    transition: border-color var(--transition-base), box-shadow var(--transition-base);
+}
+
+.search-bar:focus-within {
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px var(--color-accent-dim);
+}
+
+.search-bar input {
+    background: none;
+    border: none;
+    outline: none;
+    color: var(--color-text);
+    font-size: 0.9rem;
+    width: 100%;
+}
+
+.search-bar input::placeholder {
+    color: var(--color-text-muted);
+}
+
+.search-bar__icon {
+    color: var(--color-text-muted);
+    font-size: 1rem;
+    flex-shrink: 0;
+}
+
+/* ----------------------------------------------------------------
+   8. HERO BANNER (page anime — avec backdrop + couleur dynamique)
+   ---------------------------------------------------------------- */
+.hero {
+    position: relative;
+    min-height: 480px;
+    display: flex;
+    align-items: flex-end;
+    overflow: hidden;
+}
+
+.hero__backdrop {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center top;
+    filter: brightness(0.4);
+    transform: scale(1.05);
+    transition: transform 8s ease;
+}
+
+.hero:hover .hero__backdrop {
+    transform: scale(1);
+}
+
+/* Dégradé bas → couleur accent de l'anime */
+.hero__gradient {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top,
+            var(--color-bg) 0%,
+            rgba(var(--color-accent-rgb), 0.08) 50%,
+            transparent 100%);
+}
+
+.hero__content {
+    position: relative;
+    z-index: 1;
+    padding: 48px var(--gutter);
+    width: 100%;
+    max-width: var(--max-width);
+    margin-inline: auto;
+}
+
+/* Barre colorée accent en haut du hero */
+.hero::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--color-accent);
+    z-index: 2;
+}
+
+/* ----------------------------------------------------------------
+   9. CARTE ANIME / FILM
+   ---------------------------------------------------------------- */
+.card {
+    position: relative;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border-soft);
+    transition: transform var(--transition-base), box-shadow var(--transition-base), border-color var(--transition-base);
+    cursor: pointer;
+}
+
+.card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+    border-color: var(--color-accent);
+}
+
+.card__poster {
+    width: 100%;
+    aspect-ratio: 2 / 3;
+    object-fit: cover;
+    display: block;
+}
+
+.card__body {
+    padding: 12px;
+}
+
+.card__title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 4px;
+}
+
+.card__meta {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+/* Badge score */
+.card__score {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: rgba(0, 0, 0, .75);
+    backdrop-filter: blur(6px);
+    color: var(--color-accent);
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--color-accent-dim);
+}
+
+/* Overlay hover */
+.card__overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(0, 0, 0, .85) 0%, transparent 50%);
+    opacity: 0;
+    transition: opacity var(--transition-base);
+    display: flex;
+    align-items: flex-end;
+    padding: 12px;
+}
+
+.card:hover .card__overlay {
+    opacity: 1;
+}
+
+/* ----------------------------------------------------------------
+   10. GRILLE DE CARTES
+   ---------------------------------------------------------------- */
+.grid-cards {
+    display: grid;
+    gap: 20px;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+}
+
+@media (min-width: 768px) {
+    .grid-cards {
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    }
+}
+
+@media (min-width: 1200px) {
+    .grid-cards {
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    }
+}
+
+/* ----------------------------------------------------------------
+   11. SECTION TITRE
+   ---------------------------------------------------------------- */
+.section-header {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.section-header__title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    text-transform: capitalize;
+}
+
+/* Trait coloré avant le titre */
+.section-header__title::before {
+    content: '';
+    display: inline-block;
+    width: 4px;
+    height: 1em;
+    background: var(--color-accent);
+    border-radius: 2px;
+    margin-right: 10px;
+    vertical-align: middle;
+}
+
+.section-header__link {
+    font-size: 0.85rem;
+    color: var(--color-accent);
+    margin-left: auto;
+    opacity: 0.8;
+    transition: opacity var(--transition-fast);
+}
+
+.section-header__link:hover {
+    opacity: 1;
+}
+
+/* ----------------------------------------------------------------
+   12. BOUTONS
+   ---------------------------------------------------------------- */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 22px;
+    border-radius: var(--radius-sm);
+    font-size: 0.9rem;
+    font-weight: 600;
+    transition: all var(--transition-fast);
+}
+
+.btn--primary {
+    background: var(--color-accent);
+    color: #111;
+}
+
+.btn--primary:hover {
+    filter: brightness(1.1);
+    box-shadow: var(--shadow-accent);
+}
+
+.btn--ghost {
+    background: transparent;
+    color: var(--color-text);
+    border: 1px solid var(--color-border);
+}
+
+.btn--ghost:hover {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+}
+
+.btn--icon {
+    padding: 8px;
+    border-radius: var(--radius-sm);
+    background: var(--color-bg-elevated);
+    color: var(--color-text-muted);
+    border: 1px solid var(--color-border);
+}
+
+.btn--icon:hover {
+    color: var(--color-accent);
+    border-color: var(--color-accent);
+}
+
+/* ----------------------------------------------------------------
+   13. BADGE / TAG GENRE
+   ---------------------------------------------------------------- */
+.badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: var(--radius-xl);
+    font-size: 0.75rem;
+    font-weight: 600;
+    background: var(--color-surface);
+    color: var(--color-text-soft);
+    border: 1px solid var(--color-border);
+    transition: all var(--transition-fast);
+    cursor: default;
+}
+
+/* FINISHED - Vert */
+.badge--finished {
+    color: #2ecc71;
+    border-color: rgba(46, 204, 113, 0.3);
+    background: rgba(46, 204, 113, 0.1);
+}
+
+/* RELEASING - Bleu ou Accent */
+.badge--releasing {
+    color: var(--color-accent);
+    border-color: var(--color-accent-dim);
+    background: rgba(var(--color-accent-rgb), 0.1);
+}
+
+/* NOT_YET_RELEASED - Orange/Jaune */
+.badge--not_yet_released {
+    color: #f1c40f;
+    border-color: rgba(241, 196, 15, 0.3);
+    background: rgba(241, 196, 15, 0.1);
+}
+
+.badge--active {
+    background: var(--color-accent-dim);
+    color: var(--color-accent);
+    border-color: var(--color-accent);
+}
+
+.badge:hover {
+    filter: brightness(1.2);
+}
+
+/* ----------------------------------------------------------------
+   14. BARRE DE PROGRESSION (lecture épisode)
+   ---------------------------------------------------------------- */
+.progress-bar {
+    width: 100%;
+    height: 3px;
+    background: var(--color-surface);
+    border-radius: 99px;
+    overflow: hidden;
+}
+
+.progress-bar__fill {
+    height: 100%;
+    background: var(--color-accent);
+    border-radius: 99px;
+    transition: width 0.3s ease;
+}
+
+/* Petite barre sur la carte (progression de visionnage) */
+.card__progress {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--color-surface);
+}
+
+.card__progress-fill {
+    height: 100%;
+    background: var(--color-accent);
+}
+
+/* ----------------------------------------------------------------
+   15. PLAYER — CONTRÔLES
+   ---------------------------------------------------------------- */
+.player-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 20px;
+    background: rgba(30, 30, 30, 0.95);
+    backdrop-filter: blur(10px);
+}
+
+.player-controls .progress-bar {
+    flex: 1;
+    height: 4px;
+    cursor: pointer;
+}
+
+.player-controls .progress-bar:hover {
+    height: 6px;
+}
+
+/* ----------------------------------------------------------------
+   16. SCROLLBAR PERSONNALISÉE
+   ---------------------------------------------------------------- */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--color-bg);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--color-surface);
+    border-radius: 99px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--color-accent);
+}
+
+/* ----------------------------------------------------------------
+   17. UTILITAIRES
+   ---------------------------------------------------------------- */
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+}
+
+.flex {
+    display: flex;
+}
+
+.flex-center {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.gap-sm {
+    gap: 8px;
+}
+
+.gap-md {
+    gap: 16px;
+}
+
+.gap-lg {
+    gap: 24px;
+}
+
+.mt-sm {
+    margin-top: 8px;
+}
+
+.mt-md {
+    margin-top: 16px;
+}
+
+.mt-lg {
+    margin-top: 32px;
+}
+
+.mt-xl {
+    margin-top: 48px;
+}
+
+.truncate {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ----------------------------------------------------------------
+   18. RESPONSIVE
+   ---------------------------------------------------------------- */
+@media (max-width: 768px) {
+    .navbar__nav {
+        display: none;
+    }
+
+    .search-bar {
+        width: 100%;
+    }
+
+    .hero {
+        min-height: 320px;
+    }
+}
+
+@media (max-width: 480px) {
+    .grid-cards {
+        grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+        gap: 12px;
+    }
+}
+
+/* ----------------------------------------------------------------
+   19. ANIMATION DE LA COULEUR ACCENT (transition douce lors du
+       changement de page anime via JS)
+   ---------------------------------------------------------------- */
+*,
+*::before,
+*::after {
+    --color-accent-transition: color, background-color, border-color, box-shadow;
+    transition-property: var(--color-accent-transition);
+    transition-duration: 0.6s;
+    transition-timing-function: ease;
+}
+
+/* On annule pour les éléments qui ne doivent pas transitionner */
+.card__backdrop,
+img,
+video {
+    transition: none;
+}
+
+footer {
+    border-top: 1px solid var(--color-border);
+    padding: 24px var(--gutter);
+    text-align: center;
+    color: var(--color-text-muted);
+    font-size: 0.8rem;
+}
+
+.card__fav {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 99px;
+    background: rgba(0, 0, 0, .75);
+    backdrop-filter: blur(6px);
+    border: 1px solid transparent;
+    color: white;
+    opacity: 0;
+    transition: opacity var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+    z-index: 2;
+    pointer-events: none;
+}
+
+.card__fav.is-fav {
+    opacity: 1;
+    color: var(--color-accent);
+    border-color: var(--color-accent-dim);
+}
+
+.card:hover .card__fav {
+    opacity: 1;
+}
+
+a.badge {
+    cursor: pointer;
+}
+
+.btn-edit-list:hover {
+    opacity: 1 !important;
+    transform: scale(1.1);
+}
+
+.btn-list-action {
+    background: none;
+    border: none;
+    padding: 6px;
+    cursor: pointer;
+    color: var(--color-accent);
+    opacity: 0.3;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    border-radius: 4px;
+}
+
+.btn-list-action:hover {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.btn-list-action--danger:hover {
+    color: #ff4d4d;
+    background: rgba(255, 77, 77, 0.1);
+}
+
+.genre-filters, .lang-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 32px;
+}
+
+.lang-filters {
+    margin-bottom: 8px;
+}

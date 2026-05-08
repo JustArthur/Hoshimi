@@ -1,0 +1,67 @@
+# ============================================================
+#  HOSHIMI (星見) — Docker Compose
+#  Services : Nginx + PHP-FPM
+#  Médias : Animes uniquement (Y:\Animes)
+# ============================================================
+
+services:
+
+  # --- Serveur Web Nginx ---
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: hoshimi_nginx
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - ./src:/var/www/html:ro
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - animes_data:/media/animes
+      - ./src/public/images:/var/www/html/public/images
+    networks:
+      - hoshimi_net
+
+  # --- PHP-FPM ---
+  php:
+    build:
+      context: ./docker/php
+      dockerfile: Dockerfile
+    container_name: hoshimi_php
+    user: "1000:1000"
+    restart: unless-stopped
+    volumes:
+      - ./src:/var/www/html
+      - ./docker/php/php.ini:/usr/local/etc/php/conf.d/custom.ini:ro
+      - animes_data:/media/animes
+      - ./src/public/images:/var/www/html/public/images
+    environment:
+      - APP_ENV=${APP_ENV}
+      - APP_DEBUG=${APP_DEBUG}
+      - APP_NAME=${APP_NAME}
+      - ANILIST_API_URL=${ANILIST_API_URL}
+      - ANIDB_CLIENT=${ANIDB_CLIENT}
+      - ANIDB_CLIENTVER=${ANIDB_CLIENTVER}
+      - ANIMES_PATH=${ANIMES_PATH}
+      - IMAGES_PATH=${IMAGES_PATH}
+    networks:
+      - hoshimi_net
+
+# ============================================================
+#  VOLUMES
+# ============================================================
+volumes:
+
+  # Y:\Animes → /media/animes dans le container
+  animes_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: "Y:\\Animes"
+
+# ============================================================
+#  RÉSEAU
+# ============================================================
+networks:
+  hoshimi_net:
+    driver: bridge
