@@ -10,7 +10,9 @@
 declare(strict_types=1);
 
 $allowedRoots = [
-    $_ENV['ANIMES_PATH'] ?? '/media/animes',
+    $_ENV['ANIMES_PATH']  ?? '/media/animes',
+    $_ENV['FILMS_PATH']   ?? '/media/films',
+    $_ENV['SERIES_PATH']  ?? '/media/series',
 ];
 
 $requestedPath = $_GET['path'] ?? '';
@@ -60,6 +62,6 @@ if (!isset($mimeMap[$ext])) {
 
 // Envoyer l'image
 header('Content-Type: ' . $mimeMap[$ext]);
-header('Cache-Control: public, max-age=86400'); // cache 1 jour
+header('Cache-Control: public, max-age=86400');
 header('Content-Length: ' . filesize($realPath));
 readfile($realPath);

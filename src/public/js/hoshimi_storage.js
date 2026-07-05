@@ -2,16 +2,24 @@
 //  HOSHIMI — Storage Manager
 //  Gère via localStorage :
 //    - Progression de visionnage par épisode
-//    - Favoris (par slug anime)
-//    - Listes personnalisées
+//    - Favoris (par slug anime/serie/film)
 // ============================================================
 
 const HoshimiStorage = (() => {
 
+    function escapeHtml(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
     const KEYS = {
-        progress: 'hoshimi_progress',
-        favorites: 'hoshimi_favorites',
-        lists: 'hoshimi_lists',
+        progress:    'hoshimi_progress',
+        favorites:   'hoshimi_favorites',
+        watchStatus: 'hoshimi_watch_status',
     };
 
     // ----------------------------------------------------------------
@@ -140,7 +148,8 @@ const HoshimiStorage = (() => {
     };
 
     // ================================================================
-    //  LISTES PERSONNALISÉES
+    //  LISTES PERSONNALISÉES — SUPPRIMÉ
+    //  (conservé vide pour rétro-compat backup)
     //  Structure : { list_id: { id, name, items: [slug, ...] } }
     // ================================================================
     const Lists = {
@@ -254,130 +263,68 @@ const HoshimiStorage = (() => {
         btn.addEventListener('click', () => {
             const isFav = Favorites.toggle(slug, meta);
             updateBtn(isFav);
+            if (typeof showToast === 'function') {
+                showToast(isFav ? 'Ajouté aux favoris ♥' : 'Retiré des favoris');
+            }
         });
     }
 
     // ================================================================
     //  UI — Modal gestion des listes
     // ================================================================
-    function openListModal(slug, meta = {}) {
-        // Supprime un éventuel modal existant
-        document.getElementById('hoshimi-list-modal')?.remove();
+    //  STATUT DE VISIONNAGE
+    //  Valeurs : 'À regarder' | 'En cours' | 'Terminé' | 'Abandonné'
+    // ================================================================
+    const WatchStatus = {
+        STATUSES: ['À regarder', 'En cours', 'Terminé', 'Abandonné'],
 
-        const lists = Lists.getAll();
-        const modal = document.createElement('div');
-        modal.id = 'hoshimi-list-modal';
-        modal.style.cssText = `
-      position:fixed; inset:0; z-index:1000;
-      background:rgba(0,0,0,.7); backdrop-filter:blur(4px);
-      display:flex; align-items:center; justify-content:center;
-      padding:16px;
-    `;
-
-        modal.innerHTML = `
-      <div style="
-        background:var(--color-bg-elevated);
-        border:1px solid var(--color-border);
-        border-radius:var(--radius-md);
-        padding:24px; min-width:320px; max-width:480px; width:100%;
-        box-shadow:var(--shadow-lg);
-      ">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-          <h3 style="font-size:1rem; font-weight:700;">Ajouter à une liste</h3>
-          <button id="hoshimi-modal-close" style="
-            background:none; border:none; color:var(--color-text-muted);
-            font-size:1.2rem; cursor:pointer; padding:4px;
-          ">✕</button>
-        </div>
-
-        <div id="hoshimi-lists-container" style="display:flex; flex-direction:column; gap:8px; margin-bottom:16px;">
-          ${lists.length === 0
-                ? '<p style="color:var(--color-text-muted); font-size:.85rem;">Aucune liste. Créez-en une ci-dessous.</p>'
-                : lists.map(list => `
-              <label style="
-                display:flex; align-items:center; gap:12px;
-                padding:10px 12px; border-radius:var(--radius-sm);
-                background:var(--color-bg-card); border:1px solid var(--color-border-soft);
-                cursor:pointer;
-              ">
-                <input type="checkbox"
-                  data-list-id="${list.id}"
-                  ${Lists.hasItem(list.id, slug) ? 'checked' : ''}
-                  style="accent-color:var(--color-accent); width:16px; height:16px;"
-                >
-                <span style="font-size:.9rem;">${list.name}</span>
-                <span style="margin-left:auto; font-size:.75rem; color:var(--color-text-muted);">
-                  ${list.items?.length ?? 0} anime${(list.items?.length ?? 0) > 1 ? 's' : ''}
-                </span>
-              </label>
-            `).join('')
+        set(slug, status) {
+            const all = read(KEYS.watchStatus);
+            if (status === null) {
+                delete all[slug];
+            } else {
+                all[slug] = { slug, status, updated_at: new Date().toISOString() };
             }
-        </div>
+            write(KEYS.watchStatus, all);
+        },
 
-        <div style="display:flex; gap:8px;">
-          <input id="hoshimi-new-list-input" type="text" placeholder="Nouvelle liste…" style="
-            flex:1; background:var(--color-bg-card); border:1px solid var(--color-border);
-            border-radius:var(--radius-sm); padding:8px 12px; color:var(--color-text);
-            font-size:.85rem; outline:none;
-          ">
-          <button id="hoshimi-new-list-btn" style="
-            background:var(--color-accent); color:#111; border:none;
-            border-radius:var(--radius-sm); padding:8px 14px;
-            font-weight:600; font-size:.85rem; cursor:pointer;
-          ">Créer</button>
-        </div>
-      </div>
-    `;
+        get(slug) {
+            return read(KEYS.watchStatus)[slug]?.status ?? null;
+        },
 
-        document.body.appendChild(modal);
+        getAll() {
+            return read(KEYS.watchStatus);
+        },
 
-        // Fermeture
-        modal.querySelector('#hoshimi-modal-close').addEventListener('click', () => modal.remove());
-        modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
-
-        // Checkboxes listes existantes
-        modal.querySelectorAll('input[type="checkbox"]').forEach(cb => {
-            cb.addEventListener('change', () => {
-                const listId = cb.dataset.listId;
-                cb.checked ? Lists.addItem(listId, slug, meta) : Lists.removeItem(listId, slug);
-            });
-        });
-
-        // Créer nouvelle liste
-        const input = modal.querySelector('#hoshimi-new-list-input');
-        const newBtn = modal.querySelector('#hoshimi-new-list-btn');
-
-        newBtn.addEventListener('click', () => {
-            const name = input.value.trim();
-            if (!name) return;
-            const listId = Lists.create(name);
-            Lists.addItem(listId, slug, meta);
-            modal.remove();
-            openListModal(slug, meta); // Rouvre avec la nouvelle liste
-        });
-
-        input.addEventListener('keydown', e => {
-            if (e.key === 'Enter') newBtn.click();
-        });
-    }
+        remove(slug) {
+            this.set(slug, null);
+        },
+    };
 
     // API publique
-    return { Progress, Favorites, Lists, updateCardProgressBars, initFavoriteButton, openListModal };
+    return { Progress, Favorites, WatchStatus, updateCardProgressBars, initFavoriteButton };
 
 })();
 
+// ================================================================
+//  TOAST GLOBAL
+// ================================================================
+function showToast(msg, duration = 3000) {
+    document.querySelector('.hoshimi-toast')?.remove();
 
-function renameList(id, currentName) {
-    const newName = prompt("Nouveau nom pour cette liste :", currentName);
-    if (newName && newName.trim() !== "" && newName !== currentName) {
-        HoshimiStorage.Lists.rename(id, newName.trim());
-        window.location.reload();
-    }
+    const t = document.createElement('div');
+    t.className = 'hoshimi-toast';
+    t.textContent = msg;
+    document.body.appendChild(t);
+
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => t.classList.add('is-visible'));
+    });
+
+    setTimeout(() => {
+        t.classList.remove('is-visible');
+        setTimeout(() => t.remove(), 300);
+    }, duration);
 }
 
-function deleteList(id, name) {
-    if (confirm(`Supprimer la liste "${name}" ?`)) {
-        HoshimiStorage.Lists.delete(id);
-        window.location.reload();
-    }
-}
+

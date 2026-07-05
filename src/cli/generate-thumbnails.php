@@ -1,174 +1,224 @@
 #!/usr/bin/env php
 <?php
 // ============================================================
-//  HOSHIMI — Générateur de miniatures d'épisodes
-//  Supporte : Saisons, Films, OAV et Specials
+//  HOSHIMI — Générateur Maître (Miniatures, Durées, Tailles)
+//  Supporte : animes, séries, films
+//
+//  Usage :
+//    php generate-thumbnails.php                    # tout (défaut)
+//    php generate-thumbnails.php --type anime       # animes seulement
+//    php generate-thumbnails.php --type serie       # séries seulement
+//    php generate-thumbnails.php --type film        # films seulement
+//    php generate-thumbnails.php --slug "Dandadan"  # titre précis
+//    php generate-thumbnails.php --force            # tout régénérer
 // ============================================================
 
 declare(strict_types=1);
 
-// Chargement des variables d'environnement
+// ─── 1. Environnement ────────────────────────────────────────────────────────
 if (file_exists(__DIR__ . '/../../.env')) {
-    $lines = file(__DIR__ . '/../../.env', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-    foreach ($lines as $line) {
-        if (str_starts_with(trim($line), '#') || !str_contains($line, '=')) continue;
-        [$key, $value] = explode('=', $line, 2);
-        $_ENV[trim($key)] = trim($value);
-        putenv(trim($key) . '=' . trim($value));
+    foreach (file(__DIR__ . '/../../.env', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
+        $line = trim($line);
+        if ($line === '' || $line[0] === '#' || !str_contains($line, '=')) continue;
+        [$k, $v] = explode('=', $line, 2);
+        $_ENV[trim($k)] = trim($v);
     }
 }
 
 require_once __DIR__ . '/../app/Services/AnimeScanner.php';
+require_once __DIR__ . '/../app/Services/SeriesScanner.php';
+require_once __DIR__ . '/../app/Services/FilmScanner.php';
 
-// ---- Parsing des options CLI ----
-$opts      = getopt('', ['force', 'anime:', 'at:']);
+// ─── 2. Arguments CLI ────────────────────────────────────────────────────────
+$opts      = getopt('', ['force', 'type:', 'slug:', 'anime:', 'at:']);
 $force     = isset($opts['force']);
-$onlySlug  = $opts['anime'] ?? null;
-$captureAt = max(5, min(90, (int) ($opts['at'] ?? 30))); // entre 5% et 90%
+$type      = strtolower($opts['type'] ?? 'all');         // défaut = tout
+$onlySlug  = $opts['slug'] ?? $opts['anime'] ?? null;
+$captureAt = max(5, min(90, (int)($opts['at'] ?? 30)));
 
-// ---- Config ----
-$thumbDir  = $_ENV['IMAGES_PATH'] ?? '/var/www/html/public/images';
-$thumbDir  = rtrim($thumbDir, '/') . '/thumbnails';
-$indexFile = $thumbDir . '/index.json';
+// ─── 3. Résolution des chemins (hôte vs Docker) ──────────────────────────────
+// Si le chemin Docker n'existe pas on bascule sur le chemin hôte du .env
+function resolvePath(string $containerEnvKey, string $hostEnvKey, string $fallback): string
+{
+    $containerPath = $_ENV[$containerEnvKey] ?? $fallback;
+    if (is_dir($containerPath)) return rtrim($containerPath, '/\\');
 
-// Créer le dossier si besoin
-if (!is_dir($thumbDir)) {
-    mkdir($thumbDir, 0755, true);
+    $hostPath = $_ENV[$hostEnvKey] ?? '';
+    if ($hostPath !== '' && is_dir($hostPath)) return rtrim($hostPath, '/\\');
+
+    return $containerPath; // sera invalide → getAllX() retournera []
 }
 
-// ---- NETTOYAGE SI --force ----
+$animesPath = resolvePath('ANIMES_PATH', 'ANIMES_HOST_PATH', '/media/animes');
+$filmsPath  = resolvePath('FILMS_PATH',  'FILMS_HOST_PATH',  '/media/films');
+$seriesPath = resolvePath('SERIES_PATH', 'SERIES_HOST_PATH', '/media/series');
+
+// Injecte les chemins résolus pour que les Scanners les utilisent
+$_ENV['ANIMES_PATH']  = $animesPath;
+$_ENV['FILMS_PATH']   = $filmsPath;
+$_ENV['SERIES_PATH']  = $seriesPath;
+
+// Dossier miniatures : relatif au script si le chemin Docker n'existe pas
+$imagesPath = $_ENV['IMAGES_PATH'] ?? '/var/www/html/public/images';
+if (!is_dir($imagesPath)) {
+    $imagesPath = realpath(__DIR__ . '/../public/images') ?: (__DIR__ . '/../public/images');
+}
+$thumbDir     = rtrim($imagesPath, '/\\') . DIRECTORY_SEPARATOR . 'thumbnails';
+$indexFile    = $thumbDir . DIRECTORY_SEPARATOR . 'index.json';
+$durationFile = $thumbDir . DIRECTORY_SEPARATOR . 'durations.json';
+$sizeFile     = $thumbDir . DIRECTORY_SEPARATOR . 'filesizes.json';
+
+if (!is_dir($thumbDir)) mkdir($thumbDir, 0755, true);
+
+// ─── 4. Nettoyage si --force ─────────────────────────────────────────────────
 if ($force && !$onlySlug) {
-    echo "⚠️  Option --force détectée : Nettoyage complet du dossier...\n";
-    $files = glob($thumbDir . '/*.jpg');
-    foreach ($files as $file) {
-        if (is_file($file)) unlink($file);
+    echo "⚠️  Nettoyage complet...\n";
+    array_map('unlink', glob($thumbDir . DIRECTORY_SEPARATOR . '*.jpg') ?: []);
+    foreach ([$indexFile, $durationFile, $sizeFile] as $f) {
+        if (file_exists($f)) unlink($f);
     }
-    if (file_exists($indexFile)) unlink($indexFile);
-    echo "   ✅ Dossier miniatures et index JSON supprimés.\n\n";
 }
 
-// Vérifie FFmpeg
-exec('ffmpeg -version 2>&1', $out, $code);
-if ($code !== 0) {
-    echo "❌ FFmpeg introuvable.\n";
-    exit(1);
+// ─── 5. Chargement des caches ────────────────────────────────────────────────
+$index     = file_exists($indexFile)    ? (json_decode(file_get_contents($indexFile),    true) ?: []) : [];
+$durations = file_exists($durationFile) ? (json_decode(file_get_contents($durationFile), true) ?: []) : [];
+$sizes     = file_exists($sizeFile)     ? (json_decode(file_get_contents($sizeFile),     true) ?: []) : [];
+
+echo "🎌 Hoshimi — Génération des miniatures\n\n";
+
+// ─── 6. Construction des groupes ─────────────────────────────────────────────
+$mediaGroups = [];
+
+$wantsAnime = in_array($type, ['anime', 'all'], true);
+$wantsSerie = in_array($type, ['serie', 'all'], true);
+$wantsFilm  = in_array($type, ['film',  'all'], true);
+
+if ($wantsAnime) {
+    $scanner = new AnimeScanner($animesPath);
+    $items   = $onlySlug
+        ? array_filter([$scanner->getAnimeBySlug($onlySlug)])
+        : $scanner->getAllAnimes();
+    $mediaGroups[] = ['label' => 'Animes', 'path' => $animesPath, 'items' => array_values($items)];
 }
 
-echo "🎌 Hoshimi — Générateur de miniatures (Saisons, Films, OAV)\n";
-echo "   Dossier : $thumbDir\n";
-echo "   Capture à : {$captureAt}%\n";
-echo "   Force : " . ($force ? 'OUI' : 'NON') . "\n\n";
-
-// ---- Scan des animes ----
-$scanner = new AnimeScanner();
-$animes  = $onlySlug
-    ? array_filter([$scanner->getAnimeBySlug($onlySlug)])
-    : $scanner->getAllAnimes();
-
-if (empty($animes)) {
-    echo "Aucun anime trouvé.\n";
-    exit(0);
+if ($wantsSerie) {
+    $scanner = new SeriesScanner();
+    $items   = $onlySlug
+        ? array_filter([$scanner->getSerieBySlug($onlySlug)])
+        : $scanner->getAllSeries();
+    $mediaGroups[] = ['label' => 'Séries', 'path' => $seriesPath, 'items' => array_values($items)];
 }
 
-$total     = 0;
-$generated = 0;
-$skipped   = 0;
-$errors    = 0;
+if ($wantsFilm) {
+    $scanner = new FilmScanner();
+    $items   = $onlySlug
+        ? array_filter([$scanner->getFilmBySlug($onlySlug)])
+        : $scanner->getAllFilms();
+    $mediaGroups[] = ['label' => 'Films', 'path' => $filmsPath, 'items' => array_values($items)];
+}
 
-foreach ($animes as $anime) {
-    echo "📁 {$anime['title']}\n";
+// ─── 7. Traitement ───────────────────────────────────────────────────────────
+$totalDone = $totalSkip = $totalFail = 0;
 
-    // Grâce à la modif du scanner, 'seasons' contient aussi Films et OAV
-    foreach ($anime['seasons'] as $season) {
-        echo "   🔹 {$season['label']}\n";
+foreach ($mediaGroups as $group) {
+    echo "{$group['label']}";
+    if (!is_dir($group['path'])) {
+        echo " — ⚠️  Chemin introuvable : {$group['path']}\n\n";
+        continue;
+    }
+    echo " ({$group['path']})\n" . str_repeat('─', 50) . "\n";
 
-        foreach ($season['episodes'] as $ep) {
-            $total++;
-            $filePath = $ep['file_path'];
+    if (empty($group['items'])) {
+        echo "  (aucun média trouvé)\n\n";
+        continue;
+    }
 
-            if (!file_exists($filePath)) {
-                echo "     ⚠️  Fichier introuvable : {$ep['filename']}\n";
-                $errors++;
-                continue;
-            }
+    foreach ($group['items'] as $media) {
+        echo "📁 {$media['title']}\n";
 
-            $thumbKey  = md5($filePath);
-            $thumbFile = $thumbDir . '/' . $thumbKey . '.jpg';
+        foreach ($media['seasons'] as $season) {
+            foreach ($season['episodes'] as $ep) {
+                $path = $ep['file_path'];
+                if (!file_exists($path)) {
+                    echo "   ⚠️  Fichier introuvable : {$ep['filename']}\n";
+                    continue;
+                }
 
-            if (file_exists($thumbFile) && !$force) {
-                $skipped++;
-                continue;
-            }
+                $key         = md5($path);
+                $targetThumb = $thumbDir . DIRECTORY_SEPARATOR . $key . '.jpg';
 
-            $duration = getDuration($filePath);
-            if ($duration <= 0) {
-                echo "     ❌ Imposssible de lire la durée : {$ep['filename']}\n";
-                $errors++;
-                continue;
-            }
+                // Taille fichier
+                if (!isset($sizes[$key]) || $force) {
+                    $sizes[$key] = formatBytes(filesize($path));
+                }
 
-            $position = (int) ($duration * $captureAt / 100);
+                // Durée
+                $rawSeconds = 0;
+                if (!isset($durations[$key]) || $force) {
+                    $rawSeconds = getRawDuration($path);
+                    if ($rawSeconds > 0) $durations[$key] = formatDuration($rawSeconds);
+                }
 
-            // Commande FFmpeg optimisée pour la qualité et le ratio
-            $cmd = sprintf(
-                'ffmpeg -ss %d -i %s -vframes 1 -vf "scale=480:270:force_original_aspect_ratio=decrease,pad=480:270:(ow-iw)/2:(oh-ih)/2" -q:v 4 %s -y',
-                $position,
-                escapeshellarg($filePath),
-                escapeshellarg($thumbFile)
-            );
+                // Miniature
+                if (!file_exists($targetThumb) || $force) {
+                    if ($rawSeconds <= 0) $rawSeconds = getRawDuration($path);
+                    $pos = max(1, (int)($rawSeconds * $captureAt / 100));
 
-            exec($cmd . ' 2>&1', $output, $returnCode);
+                    $cmd = sprintf(
+                        'ffmpeg -ss %d -i %s -vframes 1 -vf "scale=480:270:force_original_aspect_ratio=decrease,pad=480:270:(ow-iw)/2:(oh-ih)/2" -q:v 4 %s -y 2>/dev/null',
+                        $pos,
+                        escapeshellarg($path),
+                        escapeshellarg($targetThumb)
+                    );
+                    exec($cmd);
 
-            if ($returnCode === 0 && file_exists($thumbFile)) {
-                $size = round(filesize($thumbFile) / 1024);
-                // Affichage adapté si c'est un film ou épisode
-                $label = ($season['number'] >= 777) ? "Spécial" : "Ep." . str_pad((string)$ep['number'], 2, '0', STR_PAD_LEFT);
-                echo "     ✅ $label → {$thumbKey}.jpg ({$size} Ko)\n";
-                $generated++;
-            } else {
-                echo "     ❌ Erreur FFmpeg sur {$ep['filename']}\n";
-                $errors++;
+                    if (file_exists($targetThumb)) {
+                        $index[$key] = '/images/thumbnails/' . $key . '.jpg';
+                        $dur   = $durations[$key] ?? '??:??';
+                        $size  = $sizes[$key]      ?? '?';
+                        $label = $season['label'] === 'Film' ? 'Film' : "Ep {$ep['number']}";
+                        echo "   ✅ $label ($dur – $size)\n";
+                        $totalDone++;
+                    } else {
+                        echo "   ❌ Erreur miniature : {$ep['filename']}\n";
+                        $totalFail++;
+                    }
+                } else {
+                    $index[$key] = '/images/thumbnails/' . $key . '.jpg';
+                    $totalSkip++;
+                }
             }
         }
     }
     echo "\n";
 }
 
-// ---- Résumé ----
-echo "─────────────────────────────────\n";
-echo "✅ Générées  : $generated\n";
-echo "⏭️  Ignorées  : $skipped\n";
-echo "❌ Erreurs   : $errors\n";
-echo "📊 Total     : $total fichiers traités\n";
+// ─── 8. Sauvegarde ───────────────────────────────────────────────────────────
+file_put_contents($indexFile,    json_encode($index,     JSON_PRETTY_PRINT));
+file_put_contents($durationFile, json_encode($durations, JSON_PRETTY_PRINT));
+file_put_contents($sizeFile,     json_encode($sizes,     JSON_PRETTY_PRINT));
 
-// ---- Mise à jour de l'index JSON ----
-// Si on est en mode force pour un seul anime, on garde l'ancien index et on met à jour.
-// Si c'est un force global, l'index a été supprimé au début donc on repart de zéro.
-$index = [];
-if (file_exists($indexFile)) {
-    $index = json_decode(file_get_contents($indexFile), true) ?? [];
-}
+echo str_repeat('─', 50) . "\n";
+echo "✨ Terminé — ✅ {$totalDone} générée(s)  ⏭  {$totalSkip} ignorée(s)  ❌ {$totalFail} erreur(s)\n";
 
-foreach ($animes as $anime) {
-    foreach ($anime['seasons'] as $season) {
-        foreach ($season['episodes'] as $ep) {
-            $key = md5($ep['file_path']);
-            if (file_exists($thumbDir . '/' . $key . '.jpg')) {
-                $index[$key] = '/images/thumbnails/' . $key . '.jpg';
-            }
-        }
-    }
-}
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
-file_put_contents($indexFile, json_encode($index, JSON_PRETTY_PRINT));
-echo "📄 Index JSON mis à jour : $indexFile\n";
-
-// ----------------------------------------------------------------
-// Helper : durée via ffprobe
-// ----------------------------------------------------------------
-function getDuration(string $filePath): float
+function getRawDuration(string $path): float
 {
-    $cmd    = "ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 " . escapeshellarg($filePath) . " 2>/dev/null";
-    $output = trim((string) shell_exec($cmd));
-    return (float) $output;
+    $cmd = 'ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 ' . escapeshellarg($path);
+    return (float)trim((string)shell_exec($cmd));
+}
+
+function formatDuration(float $seconds): string
+{
+    $s = (int)$seconds;
+    [$h, $m, $sec] = [(int)floor($s / 3600), (int)floor(($s % 3600) / 60), $s % 60];
+    return $h > 0 ? sprintf('%02d:%02d:%02d', $h, $m, $sec) : sprintf('%02d:%02d', $m, $sec);
+}
+
+function formatBytes(int $bytes): string
+{
+    $units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    $pow   = $bytes ? (int)floor(log($bytes) / log(1024)) : 0;
+    return number_format($bytes / (1024 ** $pow), 1) . ' ' . $units[$pow];
 }

@@ -1,0 +1,89 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   HOSHIMI — Boutons
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 22px;
+    border-radius: var(--radius-sm);
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    border: 1px solid transparent;
+    text-decoration: none;
+    transition: all var(--transition-fast);
+}
+
+.btn--primary {
+    background: var(--color-accent);
+    color: var(--color-accent-text);
+}
+
+.btn--primary:hover {
+    filter: brightness(1.1);
+    box-shadow: 0 0 20px color-mix(in srgb, var(--color-accent) 25%, transparent);
+}
+
+.btn--secondary {
+    background: var(--color-bg-elevated);
+    color: var(--color-text);
+    border-color: var(--color-border-soft);
+}
+
+.btn--secondary:hover {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+}
+
+.btn--ghost {
+    background: transparent;
+    color: var(--color-text);
+    border: 1px solid var(--color-border);
+}
+
+.btn--ghost.is-active,
+.btn--ghost:hover {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+}
+
+.btn--icon {
+    padding: 8px;
+    border-radius: var(--radius-sm);
+    background: var(--color-bg-elevated);
+    color: var(--color-text-muted);
+    border: 1px solid var(--color-border);
+}
+
+.btn--icon:hover {
+    color: var(--color-accent);
+    border-color: var(--color-accent);
+}
+
+/* ── Actions liste ───────────────────────────────────────────────────────── */
+
+.btn-list-action {
+    background: none;
+    border: none;
+    padding: 6px;
+    cursor: pointer;
+    color: var(--color-accent);
+    opacity: 0.3;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    border-radius: 4px;
+}
+
+.btn-list-action:hover {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.btn-list-action--danger:hover {
+    color: #ff4d4d;
+    background: rgba(255, 77, 77, 0.1);
+}

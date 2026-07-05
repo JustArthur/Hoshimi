@@ -1,0 +1,61 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   HOSHIMI — Layout helpers
+   ══════════════════════════════════════════════════════════════════════════ */
+
+main {
+    flex: 1 0 auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.container {
+    width: 100%;
+    max-width: var(--max-width);
+    margin-inline: auto;
+    padding-inline: var(--gutter);
+}
+
+/* ── Utilitaires texte ───────────────────────────────────────────────────── */
+
+.text-muted  { color: var(--color-text-muted); }
+.text-soft   { color: var(--color-text-soft); }
+.text-accent { color: var(--color-accent); }
+.text-jp     { font-family: var(--font-jp); font-weight: 300; letter-spacing: 0.05em; }
+
+/* ── Utilitaires affichage ───────────────────────────────────────────────── */
+
+.flex        { display: flex; }
+.flex-center { display: flex; align-items: center; justify-content: center; }
+
+.gap-sm { gap: 8px; }
+.gap-md { gap: 16px; }
+.gap-lg { gap: 24px; }
+
+.mt-sm  { margin-top: 8px; }
+.mt-md  { margin-top: 16px; }
+.mt-lg  { margin-top: 32px; }
+.mt-xl  { margin-top: 48px; }
+
+.truncate { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+}
+
+/* ── Meta dot ────────────────────────────────────────────────────────────── */
+
+.meta-dot::before { content: "•"; margin: 0 4px; opacity: 0.3; }
+
+/* ── Mobile ──────────────────────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+    .container {
+        padding-left: 16px !important;
+        padding-right: 16px !important;
+    }
+}

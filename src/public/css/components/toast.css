@@ -1,0 +1,40 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   HOSHIMI — Toast de confirmation (hoshimi-toast)
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.hoshimi-toast {
+    position: fixed;
+    bottom: 32px;
+    left: 50%;
+    transform: translateX(-50%) translateY(16px);
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-accent);
+    color: var(--color-text);
+    padding: 10px 22px;
+    border-radius: var(--radius-pill);
+    font-size: 0.9rem;
+    font-weight: 500;
+    box-shadow: var(--shadow-md), 0 0 12px var(--color-accent-glow);
+    z-index: 9999;
+    opacity: 0;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    pointer-events: none;
+    white-space: nowrap;
+}
+
+.hoshimi-toast.is-visible {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
+/* ── Mobile ──────────────────────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+    .hoshimi-toast {
+        transition: opacity 0.15s ease !important;
+        transform: translateX(-50%) !important;
+        box-shadow: var(--shadow-sm) !important;
+    }
+
+    .hoshimi-toast.is-visible { transform: translateX(-50%) !important; }
+}

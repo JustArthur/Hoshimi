@@ -1,0 +1,91 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   HOSHIMI — Pagination
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 40px;
+    flex-wrap: wrap;
+}
+
+.pagination__btn {
+    padding: 8px 18px;
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    font-weight: 600;
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border-soft);
+    color: var(--color-text);
+    text-decoration: none;
+    transition: border-color var(--transition-fast), color var(--transition-fast);
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.pagination__btn:hover {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+}
+
+.pagination__btn--disabled {
+    opacity: 0.3;
+    cursor: default;
+    pointer-events: none;
+}
+
+.pagination__pages {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.pagination__page {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-decoration: none;
+    color: var(--color-text-muted);
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border-soft);
+    transition: all var(--transition-fast);
+}
+
+.pagination__page:hover {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+}
+
+.pagination__page.is-active {
+    background: var(--color-accent);
+    border-color: var(--color-accent);
+    color: var(--color-accent-text);
+}
+
+.pagination__ellipsis {
+    color: var(--color-text-muted);
+    padding: 0 4px;
+    font-size: 0.85rem;
+}
+
+/* ── Mobile ──────────────────────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+    .pagination__btn {
+        padding: 8px 12px;
+        font-size: 0.78rem;
+    }
+
+    .pagination__page {
+        width: 32px;
+        height: 32px;
+        font-size: 0.78rem;
+    }
+}

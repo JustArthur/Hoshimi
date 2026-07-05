@@ -13,10 +13,10 @@
 /mysql_data/
 
 # Images générées / uploadées
-/src/public/images/posters/*
-/src/public/images/backdrops/*
-/src/public/images/thumbnails/*
-/src/public/images/episodes/*
+/src/public/images/*
+/src/public/images/
+/src/public/images/
+/src/public/images/
 !/src/public/images/**/.gitkeep
 
 # Logs

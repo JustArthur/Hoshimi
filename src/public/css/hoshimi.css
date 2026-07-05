@@ -1,0 +1,32 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   HOSHIMI — Point d'entrée CSS
+   Ordre : tokens → layout → components → pages
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Fondations ──────────────────────────────────────────────────────────── */
+@import url('./tokens.css');
+@import url('./layout.css');
+
+/* ── Composants ──────────────────────────────────────────────────────────── */
+@import url('./components/navbar.css');
+@import url('./components/footer.css');
+@import url('./components/btn.css');
+@import url('./components/badge.css');
+@import url('./components/card.css');
+@import url('./components/section-header.css');
+@import url('./components/filters.css');
+@import url('./components/catalog-sidebar.css');
+@import url('./components/pagination.css');
+@import url('./components/episode-card.css');
+@import url('./components/cast.css');
+@import url('./components/tabs.css');
+@import url('./components/modal.css');
+@import url('./components/toast.css');
+@import url('./components/empty.css');
+
+/* ── Pages ───────────────────────────────────────────────────────────────── */
+@import url('./pages/home.css');
+@import url('./pages/detail.css');
+@import url('./pages/player.css');
+@import url('./pages/stats.css');
+@import url('./pages/error.css');

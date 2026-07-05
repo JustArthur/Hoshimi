@@ -1,0 +1,139 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   HOSHIMI — Filtres (genres, langue, toolbar catalogue, sélecteurs)
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Genre / lang pill filters ───────────────────────────────────────────── */
+
+.genre-filters,
+.lang-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 32px;
+}
+
+.lang-filters { margin-bottom: 8px; }
+
+/* ── Catalog toolbar ─────────────────────────────────────────────────────── */
+
+.catalog-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.catalog-toolbar__right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+    flex-wrap: wrap;
+}
+
+/* ── Filter select (native <select>) ────────────────────────────────────── */
+
+.filter-select {
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-soft);
+    border-radius: var(--radius-sm);
+    padding: 7px 12px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    outline: none;
+    transition: border-color var(--transition-fast);
+    font-family: inherit;
+}
+
+.filter-select:hover,
+.filter-select:focus {
+    border-color: var(--color-accent);
+    color: var(--color-text);
+}
+
+/* ── Season select (native <select>, player / detail) ────────────────────── */
+
+.season-select {
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    color: var(--color-text);
+    border-radius: var(--radius-sm);
+    padding: 8px 12px;
+    font-size: 0.85rem;
+    font-family: inherit;
+    cursor: pointer;
+    outline: none;
+    transition: border-color var(--transition-fast);
+}
+
+.season-select:hover,
+.season-select:focus { border-color: var(--color-accent); }
+
+/* ── Watch status group (page detail) ───────────────────────────────────── */
+
+.watch-status-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 12px;
+}
+
+.watch-status-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    border-radius: var(--radius-sm);
+    font-size: 0.8rem;
+    font-weight: 600;
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    font-family: inherit;
+}
+
+.watch-status-btn:hover {
+    border-color: var(--color-accent);
+    color: var(--color-text);
+}
+
+.watch-status-btn.is-active {
+    background: var(--color-accent-dim);
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+}
+
+/* ── Mobile ──────────────────────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+    .catalog-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+    }
+
+    .catalog-toolbar .section-header {
+        flex-direction: row;
+        flex-wrap: nowrap;
+        align-items: baseline;
+        gap: 10px;
+        margin-bottom: 0;
+    }
+
+    .catalog-toolbar__right {
+        margin-left: 0;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 2px;
+    }
+
+    .filter-select {
+        flex-shrink: 0;
+        font-size: 0.8rem;
+        padding: 6px 10px;
+    }
+}

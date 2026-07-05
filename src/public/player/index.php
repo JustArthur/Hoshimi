@@ -1,20 +1,39 @@
 <?php
-// ============================================================
-//  HOSHIMI — Page lecteur vidéo
-//  URL : /player/?slug=One+Piece&saison=1&episode=1
-// ============================================================
 
 declare(strict_types=1);
 
 require_once __DIR__ . '/../../app/Services/AnimeScanner.php';
+require_once '../../app/Services/ThumbnailHelper.php';
+require_once __DIR__ . '/../components/card.php';
+require_once __DIR__ . '/../components/cast.php';
+require_once __DIR__ . '/../components/tabs.php';
 
-$scanner = new AnimeScanner();
+$type = $_GET['type'] ?? 'anime';
+
+if ($type === 'serie') {
+    require_once __DIR__ . '/../../app/Services/SeriesScanner.php';
+    $scanner = new SeriesScanner();
+} elseif ($type === 'film') {
+    require_once __DIR__ . '/../../app/Services/FilmScanner.php';
+    $scanner = new FilmScanner();
+} else {
+    $scanner = new AnimeScanner();
+}
 
 $slug          = $_GET['slug']    ?? '';
 $seasonNumber  = max(1, (int) ($_GET['saison']  ?? 1));
 $episodeNumber = max(1, (int) ($_GET['episode'] ?? 1));
 
-$anime = $slug ? $scanner->getAnimeBySlug($slug) : null;
+if ($type === 'film') {
+    $anime = $slug ? $scanner->getFilmBySlug($slug) : null;
+    // Films : toujours saison 1, épisode 1
+    $seasonNumber  = 1;
+    $episodeNumber = 1;
+} elseif ($type === 'serie') {
+    $anime = $slug ? $scanner->getAnimeBySlug($slug) : null;
+} else {
+    $anime = $slug ? $scanner->getAnimeBySlug($slug) : null;
+}
 
 if (!$anime) {
     http_response_code(404);
@@ -50,14 +69,40 @@ foreach ($season['episodes'] as $i => $ep) {
 $episode ??= $season['episodes'][0];
 $episodeIdx = $episodeIdx ?: 0;
 
-// Épisode précédent / suivant
+// Épisode précédent / suivant au sein de la même saison
 $prevEpisode = $season['episodes'][$episodeIdx - 1] ?? null;
 $nextEpisode = $season['episodes'][$episodeIdx + 1] ?? null;
 
-// URLs de navigation
-$baseUrl = '/player/?slug=' . urlencode($slug) . '&saison=' . $seasonNumber;
-$prevUrl = $prevEpisode ? $baseUrl . '&episode=' . $prevEpisode['number'] : null;
-$nextUrl = $nextEpisode ? $baseUrl . '&episode=' . $nextEpisode['number'] : null;
+// ---- LOGIQUE DE SAISON SUIVANTE S'IL N'Y A PLUS D'ÉPISODE ----
+$nextSeasonNumber = null;
+
+$nextSeasonLabel = null;
+if (!$nextEpisode) {
+    // On cherche s'il y a une saison avec un numéro supérieur
+    foreach ($anime['seasons'] as $s) {
+        // Ignore la saison spéciale (999) s'il y en a une
+        if ($s['number'] > $seasonNumber && $s['number'] !== 999 && !empty($s['episodes'])) {
+            $nextSeasonNumber = $s['number'];
+            $nextSeasonLabel  = $s['label'];
+            // On récupère le premier épisode de cette saison suivante
+            $nextEpisode = $s['episodes'][0];
+            break; // On a trouvé la saison la plus proche, on s'arrête
+        }
+    }
+}
+
+// URLs de navigation (Ajustées dynamiquement avec le bon numéro de saison)
+$baseUrl = '/player/?slug=' . urlencode($slug) . ($type !== 'anime' ? '&type=' . urlencode($type) : '');
+$prevUrl = $prevEpisode ? $baseUrl . '&saison=' . $seasonNumber . '&episode=' . $prevEpisode['number'] : null;
+
+if ($nextEpisode) {
+    // Si c'est un changement de saison, on utilise $nextSeasonNumber, sinon la saison actuelle
+    $targetSeason = $nextSeasonNumber ?? $seasonNumber;
+    $nextUrl = $baseUrl . '&saison=' . $targetSeason . '&episode=' . $nextEpisode['number'];
+} else {
+    $nextUrl = null;
+}
+// -------------------------------------------------------------
 
 // URL stream
 $streamUrl = '/stream/index.php?path=' . rawurlencode($episode['file_path']);
@@ -67,6 +112,88 @@ $progressKey = md5($episode['file_path']);
 
 // Accent couleur
 $accentColor = $anime['metadata']['coverImage']['color'] ?? '#F7D622';
+$synopsis = null;
+if (!empty($anime['synopsis'])) {
+    $clean = preg_replace('/<br\s*\/?>/i', "\n", $anime['synopsis']);
+    $clean = strip_tags($clean);
+    $clean = html_entity_decode($clean, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $synopsis = trim(preg_replace("/\n{3,}/", "\n\n", $clean));
+}
+
+$cachePath = $_SERVER['DOCUMENT_ROOT'] . '/images/thumbnails/';
+$durations = file_exists($cachePath . 'durations.json') ? json_decode(file_get_contents($cachePath . 'durations.json'), true) : [];
+$sizes     = file_exists($cachePath . 'filesizes.json') ? json_decode(file_get_contents($cachePath . 'filesizes.json'), true) : [];
+
+// ── TMDB données d'épisodes pour la saison active ────────────────────────────
+$tmdbEpisodes  = [];
+$seasonMetaPath = null;
+if ($season && !empty($season['episodes'])) {
+    $firstEpPath  = $season['episodes'][0]['file_path'] ?? '';
+    $seasonFolder = $firstEpPath ? dirname($firstEpPath) : '';
+    foreach ([$seasonFolder . '/metadata.json', dirname($seasonFolder) . '/metadata.json'] as $candidate) {
+        if ($candidate !== '/metadata.json' && file_exists($candidate)) {
+            $seasonJson = @json_decode(@file_get_contents($candidate), true) ?: [];
+            if (!empty($seasonJson['episodes']) && isset($seasonJson['season_number'])) {
+                $localNum = 1;
+                foreach ($seasonJson['episodes'] as $tmdbEp) {
+                    $tmdbEpisodes[$localNum++] = $tmdbEp;
+                }
+                $seasonMetaPath = $candidate;
+                break;
+            }
+        }
+    }
+}
+
+// ── Suggestions (score multi-facteurs) ──────────────────────────────────────
+$similaires = [];
+$currentGenres = array_unique($anime['genres'] ?? []);
+if (!empty($currentGenres)) {
+    $allItems = match(true) {
+        $type === 'serie' && method_exists($scanner, 'getAllSeries') => $scanner->getAllSeries(),
+        $type === 'film'  && method_exists($scanner, 'getAllFilms')  => $scanner->getAllFilms(),
+        method_exists($scanner, 'getAllAnimes')                      => $scanner->getAllAnimes(),
+        default                                                      => [],
+    };
+    $scored = [];
+    foreach ($allItems as $item) {
+        if ($item['slug'] === $slug) continue;
+        $itemGenres = array_unique($item['genres'] ?? []);
+        $common     = array_values(array_intersect($currentGenres, $itemGenres));
+        if (empty($common)) continue;
+
+        // Jaccard genre similarity (pénalise les items avec peu de genres en commun sur beaucoup)
+        $union   = array_unique(array_merge($currentGenres, $itemGenres));
+        $jaccard = count($common) / count($union) * 4.0;
+
+        // Proximité de note (échelle 0-100)
+        $sA = $anime['score'] ?? null;
+        $sB = $item['score']  ?? null;
+        $scoreBonus = ($sA !== null && $sB !== null)
+            ? max(0.0, 1 - abs($sA - $sB) / 3) * 1.5 : 0.0;
+
+        // Proximité d'année (±10 ans max)
+        $yA = $anime['year'] ?? null;
+        $yB = $item['year']  ?? null;
+        $yearBonus = ($yA !== null && $yB !== null)
+            ? max(0.0, 1 - abs($yA - $yB) / 10) * 1.0 : 0.0;
+
+        // Même studio
+        $studioBonus = (!empty($anime['studio']) && !empty($item['studio']) && $anime['studio'] === $item['studio'])
+            ? 0.75 : 0.0;
+
+        $scored[] = [
+            'item'         => $item,
+            'total'        => $jaccard + $scoreBonus + $yearBonus + $studioBonus,
+            'match_genres' => array_slice($common, 0, 3),
+        ];
+    }
+    usort($scored, fn($a, $b) => $b['total'] <=> $a['total']);
+    $similaires = array_slice($scored, 0, 10);
+}
+
+// Cast
+$castData = array_slice($anime['metadata']['credits']['cast'] ?? [], 0, 16);
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -80,27 +207,18 @@ $accentColor = $anime['metadata']['coverImage']['color'] ?? '#F7D622';
         Hoshimi
     </title>
 
-    <link rel="stylesheet" href="../css/hoshimi_base.css">
-    <link rel="stylesheet" href="../css/hoshimi_player.css">
+    <link rel="stylesheet" href="../css/hoshimi.css">
 
-    <!-- Video.js -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/video.js/8.10.0/video-js.min.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/video.js/8.10.0/video.min.js"></script>
 </head>
 
 <body>
     <div class="player-page">
-
-        <!-- ============================================================
-       NAVBAR
-       ============================================================ -->
         <?php include "../components/navbar.php"; ?>
 
         <main>
 
-            <!-- ============================================================
-         LECTEUR VIDÉO
-         ============================================================ -->
             <div class="video-wrapper">
                 <video
                     id="hoshimi-player"
@@ -111,163 +229,225 @@ $accentColor = $anime['metadata']['coverImage']['color'] ?? '#F7D622';
                     data-next-url="<?= htmlspecialchars($nextUrl ?? '') ?>"
                     data-next-title="<?= htmlspecialchars($nextEpisode['title'] ?? '') ?>"
                     data-next-number="<?= $nextEpisode['number'] ?? '' ?>">
-                    <?php $ext = strtolower(pathinfo($episode['file_path'], PATHINFO_EXTENSION)); ?>
-                    <source src="<?= htmlspecialchars($streamUrl) ?>" type="video/mp4">
+                    <?php
+                    $ext = strtolower(pathinfo($episode['file_path'], PATHINFO_EXTENSION));
+                    // mkv/avi sont transcodés à la volée en MP4 par stream/index.php
+                    $mimeMap  = ['mp4' => 'video/mp4', 'webm' => 'video/webm', 'm4v' => 'video/mp4'];
+                    $mimeType = $mimeMap[$ext] ?? 'video/mp4';
+                    ?>
+                    <source src="<?= htmlspecialchars($streamUrl) ?>" type="<?= $mimeType ?>">
                     <p class="vjs-no-js">Votre navigateur ne supporte pas la lecture vidéo.</p>
                 </video>
             </div>
 
-            <!-- ============================================================
-         INFOS ÉPISODE
-         ============================================================ -->
             <div class="player-info">
                 <div class="player-info__inner">
 
-                    <a href="/anime/?slug=<?= urlencode($slug) ?>" class="player-info__back">
+                    <?php $backTypeParam = $type !== 'anime' ? '&type=' . urlencode($type) : ''; ?>
+                    <a href="/anime/?slug=<?= urlencode($slug) ?><?= $backTypeParam ?>" class="player-info__back">
                         ← Retour
                     </a>
 
                     <div class="player-info__titles">
                         <div class="player-info__anime">
-                            <?= htmlspecialchars($anime['title']) ?>
-                            · <?= htmlspecialchars($season['label']) ?>
+                            <span><?= htmlspecialchars($anime['title_english'] ?? $anime['title'] ?? '') ?></span>
+                            <span>•</span>
+                            <span><?= htmlspecialchars($season['label']) ?></span>
                         </div>
 
+                        <?php
+                        $curTmdb     = $tmdbEpisodes[$episode['number']] ?? null;
+                        $curEpName   = $curTmdb['name'] ?? null;
+                        $curEpOverview = $curTmdb['overview'] ?? null;
+                        ?>
                         <div class="player-info__episode">
-                            <?php if ($season['number'] == 999) : ?>
-                                🎬
-                                <?php
-                                // On nettoie le titre du film s'il contient des tags techniques
+                            <?php if ($season['number'] == 999) :
                                 $cleanFilmTitle = $episode['title'];
                                 $search = ['1080p', '720p', 'MULTISUB', 'MULTI', 'FILM', 'x264', 'x265'];
                                 $cleanFilmTitle = str_ireplace($search, '', $cleanFilmTitle);
                                 $cleanFilmTitle = trim($cleanFilmTitle, " _-");
-
-                                // Si le titre nettoyé est le même que le nom de l'anime, on met juste "Film"
-                                if (empty($cleanFilmTitle) || strtolower($cleanFilmTitle) == strtolower($anime['title'])) {
-                                    echo "Film";
-                                } else {
-                                    echo htmlspecialchars($cleanFilmTitle);
-                                }
-                                ?>
-                            <?php else : ?>
+                                echo htmlspecialchars(
+                                    (empty($cleanFilmTitle) || strtolower($cleanFilmTitle) == strtolower($anime['title']))
+                                        ? 'Film' : $cleanFilmTitle
+                                );
+                            else : ?>
                                 Épisode <?= str_pad((string)$episode['number'], 2, '0', STR_PAD_LEFT) ?>
-                                — <?= htmlspecialchars($episode['title']) ?>
+                                <?php if ($curEpName): ?>
+                                    <span class="player-info__ep-sep">•</span>
+                                    <span class="player-info__ep-name"><?= htmlspecialchars($curEpName) ?></span>
+                                <?php endif; ?>
                             <?php endif; ?>
                         </div>
+
+                        <?php if ($curEpOverview): ?>
+                            <p class="player-info__ep-synopsis"><?= htmlspecialchars($curEpOverview) ?></p>
+                        <?php endif; ?>
 
                         <div class="player-info__meta">
                             <?php if (!empty($episode['quality'])) : ?>
                                 <span><?= strtoupper(htmlspecialchars($episode['quality'])) ?></span>
+                                <span>•</span>
                             <?php endif; ?>
                             <?php if (!empty($episode['language'])) : ?>
                                 <span><?= htmlspecialchars($episode['language']) ?></span>
+                                <span>•</span>
                             <?php endif; ?>
                             <span><?= htmlspecialchars(strtoupper(pathinfo($episode['filename'], PATHINFO_EXTENSION))) ?></span>
                         </div>
                     </div>
 
                     <div class="player-info__nav">
+                        <?php if (count($anime['seasons']) > 1) : ?>
+                            <select class="season-select" onchange="window.location.href='/player/?slug=<?= urlencode($slug) ?><?= $backTypeParam ?>&saison='+this.value+'&episode=1'">
+                                <?php foreach ($anime['seasons'] as $s) : ?>
+                                    <option value="<?= $s['number'] ?>" <?= $s['number'] === $seasonNumber ? 'selected' : '' ?>>
+                                        <?= htmlspecialchars($s['label']) ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        <?php endif; ?>
+
                         <?php if ($prevUrl) : ?>
                             <a href="<?= htmlspecialchars($prevUrl) ?>" class="btn btn--ghost" title="Précédent">← Préc.</a>
                         <?php endif; ?>
                         <?php if ($nextUrl) : ?>
-                            <a href="<?= htmlspecialchars($nextUrl) ?>" class="btn btn--primary" title="Suivant">Suiv. →</a>
+                            <a href="<?= htmlspecialchars($nextUrl) ?>" class="btn btn--primary" title="Suivant">
+                                <?= $nextSeasonNumber ? htmlspecialchars($nextSeasonLabel ?? 'Saison ' . $nextSeasonNumber) . ' →' : 'Suiv. →' ?>
+                            </a>
                         <?php endif; ?>
                     </div>
 
                 </div>
             </div>
 
-            <!-- ============================================================
-         CORPS — Infos + Playlist
-         ============================================================ -->
+            <!-- ── Tab bar (full-width, hors player-body) ── -->
+            <?= render_tabs_bar([
+                ['id' => 'episodes',    'label' => 'Épisodes',    'icon' => 'play',     'active' => $type !== 'film', 'hidden' => $type === 'film', 'count' => count($season['episodes'])],
+                ['id' => 'synopsis',    'label' => 'Synopsis',    'icon' => 'book',     'active' => $type === 'film'],
+                ['id' => 'cast',        'label' => 'Casting',     'icon' => 'cast',     'active' => false, 'hidden' => empty($castData)],
+                ['id' => 'suggestions', 'label' => 'Suggestions', 'icon' => 'sparkles', 'active' => false, 'hidden' => empty($similaires)],
+            ]) ?>
+
             <div class="player-body">
 
-                <!-- Infos anime -->
-                <div>
-                    <div class="section-header">
-                        <h2 class="section-header__title" style="font-size:1rem;">
-                            À propos
-                        </h2>
-                        <a href="/anime/?slug=<?= urlencode($slug) ?>" class="section-header__link">
-                            Voir la page complète →
-                        </a>
-                    </div>
+                <!-- ── Panel : Épisodes ── -->
+                <div class="detail-tab-panel <?= $type !== 'film' ? 'is-active' : '' ?>" id="tab-episodes" <?= $type === 'film' ? 'hidden' : '' ?>>
+                    <div class="episode-list">
+                        <?php foreach ($season['episodes'] as $ep) :
+                            $isActive   = $ep['number'] === $episode['number'];
+                            $epNum      = $ep['number'];
+                            $epKey      = md5($ep['file_path']);
+                            $thumb      = ThumbnailHelper::getUrlFromIndex($ep['file_path']);
+                            $duration   = $durations[$epKey] ?? null;
+                            $filesize   = $sizes[$epKey] ?? null;
+                            $lang       = strtoupper($ep['language'] ?? 'VOSTFR');
 
-                    <?php if (!empty($anime['genres'])) : ?>
-                        <div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:16px;">
-                            <?php foreach ($anime['genres'] as $genre) : ?>
-                                <span class="badge"><?= htmlspecialchars($genre) ?></span>
-                            <?php endforeach; ?>
-                        </div>
-                    <?php endif; ?>
+                            $tmdbEp     = $tmdbEpisodes[$epNum] ?? null;
+                            $stillUrl   = $tmdbEp['still_urls']['w300'] ?? null;
+                            $epTmdbName = $tmdbEp['name'] ?? null;
+                            $epOverview = $tmdbEp['overview'] ?? null;
 
-                    <?php
-                    $synopsis = $anime['synopsis']
-                        ? strip_tags(str_replace(['<br>', '<br/>'], "\n", $anime['synopsis']))
-                        : null;
-                    ?>
-                    <?php if ($synopsis) : ?>
-                        <p style="font-size:0.9rem; color:var(--color-text-soft); line-height:1.8;">
-                            <?= nl2br(htmlspecialchars(mb_substr($synopsis, 0, 400))) ?>
-                            <?= mb_strlen($synopsis) > 400 ? '…' : '' ?>
-                        </p>
-                    <?php endif; ?>
-                </div>
+                            $imgSrc = $stillUrl ?: $thumb;
 
-                <!-- Playlist -->
-                <aside>
-                    <div class="playlist">
-                        <div class="playlist__header">
-                            <?= htmlspecialchars($season['label']) ?>
-                            — <?= count($season['episodes']) ?> épisodes
-                        </div>
-                        <div class="playlist__list" id="playlist-list">
-                            <?php foreach ($season['episodes'] as $ep) : ?>
-                                <?php
-                                $epUrl     = $baseUrl . '&episode=' . $ep['number'];
-                                $isActive  = $ep['number'] === $episode['number'];
-                                $epKey     = md5($ep['file_path']);
-                                ?>
-                                <a
-                                    href="<?= htmlspecialchars($epUrl) ?>"
-                                    class="playlist__item <?= $isActive ? 'active' : '' ?>"
-                                    data-progress-key="<?= $epKey ?>">
-                                    <span class="playlist__num">
-                                        <?= $isActive ? '▶' : str_pad((string)$ep['number'], 2, '0', STR_PAD_LEFT) ?>
-                                    </span>
-                                    <span class="playlist__title" title="<?= htmlspecialchars($ep['title']) ?>">
-                                        <?= htmlspecialchars($ep['title']) ?>
-                                    </span>
-                                    <div class="playlist__badges">
-                                        <?php if (!empty($ep['quality'])) : ?>
-                                            <span class="playlist__badge"><?= htmlspecialchars($ep['quality']) ?></span>
-                                        <?php endif; ?>
-                                        <?php if (!empty($ep['language'])) : ?>
-                                            <span class="playlist__badge"><?= htmlspecialchars($ep['language']) ?></span>
+                            if ($season['number'] == 999) {
+                                $epLabel = trim(str_ireplace(['1080p', '720p', 'MULTISUB', 'MULTI', 'FILM', 'x264', 'x265'], '', $ep['title']), " _-") ?: 'Film';
+                            } else {
+                                $epLabel = 'E' . str_pad((string)$epNum, 2, '0', STR_PAD_LEFT);
+                                if ($epTmdbName) $epLabel .= ' — ' . $epTmdbName;
+                                elseif ($ep['title'] && $ep['title'] !== $epLabel) $epLabel .= ' — ' . $ep['title'];
+                            }
+                        ?>
+                            <a href="<?= $baseUrl . '&saison=' . $seasonNumber . '&episode=' . $epNum ?>"
+                                class="episode-card <?= $isActive ? 'is-active' : '' ?>"
+                                data-ep-key="<?= $epKey ?>">
+
+                                <div class="episode-card__thumbnail <?= empty($imgSrc) ? 'is-empty' : '' ?>">
+                                    <?php if ($imgSrc): ?>
+                                        <img src="<?= htmlspecialchars($imgSrc) ?>"
+                                            alt="" loading="lazy"
+                                            onerror="this.parentElement.classList.add('is-empty'); this.remove();">
+                                    <?php endif; ?>
+                                    <div class="episode-card__placeholder-number"><?= str_pad((string)$epNum, 2, '0', STR_PAD_LEFT) ?></div>
+                                    <div class="episode-card__overlay">
+                                        <div class="episode-card__play-icon">▶</div>
+                                    </div>
+                                    <?php if ($duration): ?>
+                                        <div class="episode-card__duration"><?= $duration ?></div>
+                                    <?php endif; ?>
+                                    <div class="episode-card__progress">
+                                        <div class="episode-card__progress-fill" style="width: 0%"></div>
+                                    </div>
+                                </div>
+
+                                <div class="episode-card__body">
+                                    <span class="episode-card__label"><?= htmlspecialchars($epLabel) ?></span>
+                                    <?php if ($epOverview): ?>
+                                        <p class="episode-card__description"><?= htmlspecialchars($epOverview) ?></p>
+                                    <?php endif; ?>
+                                    <div class="episode-card__info">
+                                        <span class="episode-card__lang" data-lang="<?= $lang ?>"><?= $lang ?></span>
+                                        <?php if ($filesize): ?>
+                                            <span style="font-size:0.65rem; color:var(--color-text-muted); margin-left:auto;"><?= $filesize ?></span>
                                         <?php endif; ?>
                                     </div>
-                                    <!-- Barre progression (remplie par JS) -->
-                                    <div class="playlist__progress" style="width:0%" data-ep-key="<?= $epKey ?>"></div>
-                                </a>
+                                </div>
+                            </a>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+
+                <!-- ── Panel : Synopsis ── -->
+                <div class="detail-tab-panel <?= $type === 'film' ? 'is-active' : '' ?>" id="tab-synopsis" <?= $type !== 'film' ? 'hidden' : '' ?>>
+                    <?php if (!empty($anime['genres'])): ?>
+                        <div class="player-about__genres">
+                            <?php foreach ($anime['genres'] as $genre): ?>
+                                <a href="/animes?genre=<?= urlencode($genre) ?>" class="badge"><?= htmlspecialchars($genre) ?></a>
                             <?php endforeach; ?>
                         </div>
+                    <?php endif; ?>
+                    <?php if ($synopsis): ?>
+                        <p class="player-about__synopsis"><?= nl2br(htmlspecialchars($synopsis)) ?></p>
+                    <?php else: ?>
+                        <p style="color:var(--color-text-muted)">Aucun synopsis disponible.</p>
+                    <?php endif; ?>
+                    <a href="/anime/?slug=<?= urlencode($slug) ?><?= $backTypeParam ?>" class="btn btn--ghost" style="margin-top:20px; display:inline-flex;">Page complète →</a>
+                </div>
+
+                <!-- ── Panel : Casting ── -->
+                <?php if (!empty($castData)): ?>
+                    <div class="detail-tab-panel" id="tab-cast" hidden>
+                        <?= render_cast_grid($castData) ?>
                     </div>
-                </aside>
+                <?php endif; ?>
+
+                <?php if (!empty($similaires)): ?>
+                    <div class="detail-tab-panel" id="tab-suggestions" hidden>
+                        <div class="suggestions-section">
+                            <div class="grid-cards">
+                                <?php foreach ($similaires as $simData): ?>
+                                    <?= render_card($simData['item'], $type, [
+                                        'match_genres' => $simData['match_genres'],
+                                    ]) ?>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                    </div>
+                <?php endif; ?>
 
             </div>
+
+
         </main>
 
     </div>
 
-    <!-- ============================================================
-     TOAST ÉPISODE SUIVANT
-     ============================================================ -->
     <?php if ($nextEpisode) : ?>
         <div class="next-toast" id="next-toast">
-            <div class="next-toast__label">Épisode suivant dans <span id="next-countdown">10</span>s</div>
+            <div class="next-toast__label">
+                <?= $nextSeasonNumber ? htmlspecialchars($nextSeasonLabel ?? 'Saison ' . $nextSeasonNumber) . ' dans ' : 'Épisode suivant dans ' ?><span id="next-countdown">10</span>s
+            </div>
             <div class="next-toast__title">
+                <?= $nextSeasonNumber ? htmlspecialchars($nextSeasonLabel ?? 'Saison ' . $nextSeasonNumber) . ' — ' : '' ?>
                 Ép. <?= str_pad((string)$nextEpisode['number'], 2, '0', STR_PAD_LEFT) ?>
                 — <?= htmlspecialchars($nextEpisode['title']) ?>
             </div>
@@ -283,238 +463,28 @@ $accentColor = $anime['metadata']['coverImage']['color'] ?? '#F7D622';
         </div>
     <?php endif; ?>
 
-    <!-- Scripts -->
+    <script>
+        window.HOSHIMI_PLAYER = {
+            progressKey: <?= json_encode($progressKey) ?>,
+            isFilm:      <?= $type === 'film' ? 'true' : 'false' ?>,
+        };
+        window.HOSHIMI_NEXT_URL    = <?= json_encode($nextUrl) ?>;
+        window.HOSHIMI_ACCENT_DATA = <?= json_encode($anime['metadata'] ?? []) ?>;
+    </script>
     <script src="../js/hoshimi_accent.js"></script>
     <script src="../js/hoshimi_storage.js"></script>
+    <script src="../js/hoshimi_player.js"></script>
+    <script src="../js/hoshimi_next.js"></script>
+    <script src="../js/hoshimi_tabs.js"></script>
     <script>
-        // ============================================================
-        //  Hoshimi Player — Video.js + progression + épisode suivant
-        // ============================================================
-
-        const PROGRESS_KEY = document.getElementById('hoshimi-player').dataset.progressKey;
-        const NEXT_URL = document.getElementById('hoshimi-player').dataset.nextUrl;
-        const NEXT_TITLE = document.getElementById('hoshimi-player').dataset.nextTitle;
-        const SAVE_INTERVAL_SEC = 5; // sauvegarde toutes les 5s
-        const NEXT_DELAY_SEC = 10; // délai avant épisode suivant
-        const COMPLETE_THRESHOLD = 0.92; // 92% = considéré comme vu
-
-        let player;
-        let saveTimer;
-        let nextTimer;
-        let nextCancelled = false;
-
-        // ---- Init Video.js ----
-        player = videojs('hoshimi-player', {
-            controls: true,
-            autoplay: false,
-            preload: 'auto',
-            fluid: false,
-            responsive: false,
-            playbackRates: [0.5, 0.75, 1, 1.25, 1.5, 2],
-        });
-
-        // ---- Reprise de la progression ----
-        player.ready(function() {
-            const data = HoshimiStorage.Progress.get(PROGRESS_KEY);
-            if (data.position > 10 && !data.completed) {
-                player.currentTime(data.position);
-                showResumeNotice(data.position);
+        HoshimiStorage.initFavoriteButton?.(
+            document.querySelector('[data-fav-btn]'),
+            <?= json_encode($anime['slug']) ?>, {
+                title:     <?= json_encode($anime['title']) ?>,
+                cover_url: <?= json_encode($anime['cover_url'] ?? '') ?>,
+                type:      <?= json_encode($type) ?>,
             }
-        });
-
-        // ---- Sauvegarde périodique ----
-        player.on('timeupdate', function() {
-            clearTimeout(saveTimer);
-            saveTimer = setTimeout(saveProgress, SAVE_INTERVAL_SEC * 1000);
-
-            // Met à jour la barre de progression de la playlist
-            const ratio = player.currentTime() / (player.duration() || 1);
-            const bar = document.querySelector('[data-ep-key="' + PROGRESS_KEY + '"] .playlist__progress') ||
-                document.querySelector('.playlist__item.active .playlist__progress');
-            if (bar) bar.style.width = Math.min(ratio * 100, 100) + '%';
-        });
-
-        player.on('pause', saveProgress);
-        player.on('ended', onVideoEnded);
-
-        // ---- Fin de vidéo ----
-        function onVideoEnded() {
-            saveProgress(true);
-            if (NEXT_URL && !nextCancelled) {
-                showNextToast();
-            }
-        }
-
-        // ---- Sauvegarde progression ----
-        function saveProgress(completed = false) {
-            HoshimiStorage.Progress.save(
-                PROGRESS_KEY,
-                player.currentTime(),
-                player.duration() || 0,
-                completed === true
-            );
-        }
-
-        // ---- Toast épisode suivant ----
-        function showNextToast() {
-            const toast = document.getElementById('next-toast');
-            const bar = document.getElementById('next-bar');
-            const countdown = document.getElementById('next-countdown');
-            if (!toast) return;
-
-            toast.classList.add('visible');
-
-            // Countdown visuel
-            bar.style.transition = 'none';
-            bar.style.width = '100%';
-            setTimeout(() => {
-                bar.style.transition = `width ${NEXT_DELAY_SEC}s linear`;
-                bar.style.width = '0%';
-            }, 50);
-
-            let remaining = NEXT_DELAY_SEC;
-            const tick = setInterval(() => {
-                remaining--;
-                if (countdown) countdown.textContent = remaining;
-                if (remaining <= 0) {
-                    clearInterval(tick);
-                    if (!nextCancelled) {
-                        window.location.href = NEXT_URL;
-                    }
-                }
-            }, 1000);
-
-            nextTimer = tick;
-        }
-
-        function cancelNext() {
-            nextCancelled = true;
-            clearInterval(nextTimer);
-            const toast = document.getElementById('next-toast');
-            if (toast) toast.classList.remove('visible');
-        }
-
-        // ---- Notice de reprise ----
-        function showResumeNotice(position) {
-            const mins = Math.floor(position / 60);
-            const secs = Math.floor(position % 60).toString().padStart(2, '0');
-            const msg = document.createElement('div');
-            msg.style.cssText = `
-    position:fixed; top:80px; right:24px; z-index:999;
-    background:var(--color-bg-elevated);
-    border:1px solid var(--color-accent);
-    border-radius:var(--radius-md);
-    padding:12px 18px; font-size:.85rem;
-    box-shadow:var(--shadow-md);
-    display:flex; gap:12px; align-items:center;
-  `;
-            msg.innerHTML = `
-    <span>Reprendre à <strong>${mins}:${secs}</strong> ?</span>
-    <button onclick="player.play(); this.closest('div').remove();"
-      style="background:var(--color-accent);color:#111;border:none;padding:4px 12px;
-             border-radius:4px;font-weight:600;cursor:pointer;font-size:.8rem;">
-      Reprendre
-    </button>
-    <button onclick="player.currentTime(0); this.closest('div').remove();"
-      style="background:transparent;border:1px solid var(--color-border);color:var(--color-text-muted);
-             padding:4px 12px;border-radius:4px;cursor:pointer;font-size:.8rem;">
-      Début
-    </button>
-  `;
-            document.body.appendChild(msg);
-            setTimeout(() => msg.remove(), 8000);
-        }
-
-        // ---- Raccourcis clavier ----
-        document.addEventListener('keydown', function(e) {
-            // Ignorer si focus sur input
-            if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) return;
-
-            switch (e.key) {
-                case ' ':
-                case 'k':
-                    e.preventDefault();
-                    player.paused() ? player.play() : player.pause();
-                    break;
-                case 'ArrowRight':
-                case 'l':
-                    player.currentTime(Math.min(player.currentTime() + 10, player.duration()));
-                    break;
-                case 'ArrowLeft':
-                case 'j':
-                    player.currentTime(Math.max(player.currentTime() - 10, 0));
-                    break;
-                case 'ArrowUp':
-                    player.volume(Math.min(player.volume() + 0.1, 1));
-                    break;
-                case 'ArrowDown':
-                    player.volume(Math.max(player.volume() - 0.1, 0));
-                    break;
-                case 'm':
-                    player.muted(!player.muted());
-                    break;
-                case 'f':
-                    player.isFullscreen() ? player.exitFullscreen() : player.requestFullscreen();
-                    break;
-            }
-        });
-
-        // ---- Charge les progressions de la playlist ----
-        document.querySelectorAll('.playlist__item[data-progress-key]').forEach(item => {
-            const key = item.dataset.progressKey;
-            fetch('/api/progress/?file=' + encodeURIComponent(key))
-                .then(r => r.json())
-                .then(data => {
-                    if (data.duration > 0) {
-                        const bar = item.querySelector('.playlist__progress');
-                        if (bar) {
-                            const pct = data.completed ? 100 : (data.position / data.duration) * 100;
-                            bar.style.width = Math.min(pct, 100) + '%';
-                        }
-                    }
-                })
-                .catch(() => {});
-        });
-
-        // ---- Accent couleur depuis les métadonnées PHP ----
-        const animeData = <?= json_encode($anime['metadata'] ?? []) ?>;
-        setAccentFromAnime(animeData);
-
-        // ---- Scroll playlist sur l'épisode actif (sans scroller la page) ----
-        const activeItem = document.querySelector('.playlist__item.active');
-        if (activeItem) {
-            const playlist = document.getElementById('playlist-list');
-            if (playlist) {
-                playlist.scrollTop = activeItem.offsetTop - playlist.offsetTop - (playlist.clientHeight / 2);
-            }
-        }
-
-        document.addEventListener('DOMContentLoaded', () => {
-            // 1. On récupère toutes les progressions sauvegardées
-            const allProgress = HoshimiStorage.Progress.getAllProgress();
-
-            // 2. On parcourt toutes les barres de progression de la playlist
-            document.querySelectorAll('.playlist__progress').forEach(bar => {
-                const epKey = bar.dataset.epKey;
-                const progress = allProgress[epKey];
-
-                if (progress && progress.duration > 0) {
-                    // Calcul du pourcentage
-                    let pct = (progress.position / progress.duration) * 100;
-
-                    // Si l'épisode est marqué comme complété, on force 100%
-                    if (progress.completed) pct = 100;
-
-                    // Mise à jour visuelle
-                    bar.style.width = Math.min(pct, 100) + '%';
-
-                    // Optionnel : ajouter une classe si terminé pour changer la couleur
-                    if (pct >= 92) {
-                        bar.parentElement.classList.add('is-completed');
-                    }
-                }
-            });
-        });
+        );
     </script>
 
     <?php include "../components/footer.php"; ?>

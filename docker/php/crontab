@@ -1,0 +1,3 @@
+# Hoshimi — génération automatique des thumbnails manquants (toutes les heures)
+0 * * * * php /var/www/html/cli/generate-thumbnails.php >> /var/log/hoshimi-thumbnails.log 2>&1
+

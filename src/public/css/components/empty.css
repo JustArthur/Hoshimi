@@ -1,0 +1,54 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   HOSHIMI — Empty states (no-episodes, no results…)
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.no-episodes {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 260px;
+    padding: 60px 40px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.no-episodes__icon {
+    width: 52px;
+    height: 52px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(var(--color-accent-rgb), 0.08);
+    border: 1px solid rgba(var(--color-accent-rgb), 0.18);
+    color: rgba(var(--color-accent-rgb), 0.6);
+    font-style: normal;
+}
+
+.no-episodes__icon svg {
+    width: 24px;
+    height: 24px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.no-episodes__text {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--color-text);
+    margin-bottom: 6px;
+    letter-spacing: -0.01em;
+}
+
+.no-episodes__sub {
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+    max-width: 280px;
+}

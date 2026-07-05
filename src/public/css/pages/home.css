@@ -1,0 +1,220 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   HOSHIMI — Page d'accueil (hero spotlight)
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.home-hero {
+    position: relative;
+    width: 100%;
+    min-height: 540px;
+    overflow: hidden;
+    background: #080808;
+}
+
+/* Couleur d'accent du hero utilisée pour le bouton primaire */
+.home-hero .btn--primary {
+    background: var(--color-accent);
+}
+
+.home-hero__backdrop {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center 20%;
+    background-repeat: no-repeat;
+}
+
+.home-hero__backdrop--portrait {
+    background-position: top center;
+    filter: brightness(0.5);
+}
+
+.home-hero__gradient {
+    position: absolute;
+    inset: 0;
+    background:
+        linear-gradient(to right, rgba(8, 8, 8, 0.97) 0%, rgba(8, 8, 8, 0.72) 42%, rgba(8, 8, 8, 0.15) 75%, transparent 100%),
+        linear-gradient(to top, var(--color-bg) 0%, rgba(8, 8, 8, 0.5) 25%, transparent 55%),
+        linear-gradient(to bottom, rgba(8, 8, 8, 0.55) 0%, transparent 22%);
+}
+
+.home-hero__container {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    max-width: var(--max-width);
+    margin-inline: auto;
+    padding-inline: var(--gutter);
+}
+
+.home-hero__content {
+    padding-top: 64px;
+    padding-bottom: 80px;
+    max-width: min(580px, 55%);
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.home-hero__eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* Badge type (ANIME / SERIE / FILM) */
+.home-hero__type-badge {
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: 4px;
+}
+
+.home-hero__type-badge--anime,
+.home-hero__type-badge--serie,
+.home-hero__type-badge--film {
+    background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+    color: var(--color-accent);
+    border: 1px solid color-mix(in srgb, var(--color-accent) 40%, transparent);
+}
+
+.home-hero__year {
+    font-size: 0.78rem;
+    color: rgba(255, 255, 255, 0.4);
+    font-weight: 500;
+}
+
+/* Logo image */
+.home-hero__logo {
+    max-width: 380px;
+    max-height: 130px;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    object-position: left center;
+    filter: drop-shadow(0 2px 16px rgba(0, 0, 0, 0.8));
+    transition: none !important;
+}
+
+/* Titre (si pas de logo image) */
+.home-hero__title {
+    font-size: clamp(1.9rem, 4.2vw, 3.4rem);
+    font-weight: 800;
+    line-height: 1.08;
+    color: #fff;
+    text-shadow: 0 2px 40px rgba(0, 0, 0, 0.7);
+    letter-spacing: -0.03em;
+    transition: none !important;
+}
+
+.home-hero__meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.home-hero__score {
+    color: var(--color-accent);
+    font-weight: 700;
+    font-size: 0.88rem;
+}
+
+.home-hero__genre {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.55);
+}
+
+.home-hero__genre:not(:last-child)::after {
+    content: ' ·';
+    color: rgba(255, 255, 255, 0.25);
+}
+
+.home-hero__synopsis {
+    font-size: 0.88rem;
+    color: rgba(255, 255, 255, 0.6);
+    line-height: 1.68;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    transition: none !important;
+}
+
+.home-hero__actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 4px;
+}
+
+/* Fondu bas vers le fond de page */
+.home-hero::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 90px;
+    background: linear-gradient(to bottom, transparent, var(--color-bg));
+    z-index: 1;
+    pointer-events: none;
+}
+
+/* ── Mobile ──────────────────────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+    .home-hero__gradient {
+        background:
+            linear-gradient(to top, rgba(8, 8, 8, 0.99) 0%, rgba(8, 8, 8, 0.65) 38%, rgba(8, 8, 8, 0.12) 100%),
+            linear-gradient(to bottom, rgba(8, 8, 8, 0.45) 0%, transparent 22%);
+    }
+
+    .home-hero__content {
+        max-width: 100%;
+        padding-top: 48px;
+        padding-bottom: 70px;
+        gap: 11px;
+    }
+
+    .home-hero__synopsis {
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+        font-size: 0.82rem;
+    }
+
+    .home-hero__logo {
+        max-width: 260px;
+        max-height: 90px;
+    }
+
+    .home-hero__title {
+        font-size: clamp(1.5rem, 6vw, 2.2rem);
+    }
+
+    .home-hero__actions {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+}
+
+@media (max-width: 480px) {
+    .home-hero__logo {
+        max-width: 200px;
+        max-height: 70px;
+    }
+
+    .home-hero__title {
+        font-size: clamp(1.3rem, 7vw, 1.8rem);
+    }
+
+    .home-hero__synopsis {
+        display: none;
+    }
+
+    .home-hero__actions .btn {
+        flex: 1 1 auto;
+        justify-content: center;
+    }
+}

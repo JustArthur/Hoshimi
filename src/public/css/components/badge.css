@@ -1,0 +1,159 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   HOSHIMI — Badges (source unique — convention --status-*)
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 11px;
+    border-radius: var(--radius-pill);
+    font-size: 0.72rem;
+    font-weight: 600;
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-soft);
+    letter-spacing: 0.02em;
+    text-decoration: none;
+    cursor: default;
+    transition: border-color var(--transition-fast), color var(--transition-fast);
+}
+
+a.badge { cursor: pointer; }
+
+.badge:hover {
+    border-color: rgba(255, 255, 255, 0.2);
+    color: var(--color-text);
+}
+
+.badge.badge--soon:hover {
+    border-color: var(--color-accent);
+}
+
+/* ── Filtre actif ────────────────────────────────────────────────────────── */
+
+.badge--active {
+    background: var(--color-accent-dim);
+    color: var(--color-accent);
+    border-color: var(--color-accent);
+}
+
+/* ── Langue ──────────────────────────────────────────────────────────────── */
+
+.badge--lang {
+    background: rgba(91, 179, 232, 0.1);
+    color: #5bb3e8;
+    border-color: rgba(91, 179, 232, 0.25);
+}
+
+.badge--vf {
+    background: rgba(16, 185, 129, 0.15);
+    color: #6ee7b7;
+    border-color: rgba(16, 185, 129, 0.3);
+}
+
+.badge--vostfr {
+    background: rgba(14, 165, 233, 0.15);
+    color: #7dd3fc;
+    border-color: rgba(14, 165, 233, 0.3);
+}
+
+/* ── Tendance & score ────────────────────────────────────────────────────── */
+
+.badge--trending {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--color-accent);
+    color: var(--color-accent-text);
+    border: none;
+    letter-spacing: 0.03em;
+}
+
+.badge--trending:hover {
+    background: var(--color-accent);
+    color: var(--color-accent-text);
+}
+
+.badge--score {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(0, 0, 0, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #f5c518;
+    backdrop-filter: blur(6px);
+    letter-spacing: 0.03em;
+}
+
+/* ── À venir (hero & card) ───────────────────────────────────────────────── */
+
+.badge--soon {
+    display: inline-flex;
+    align-items: center;
+    background: color-mix(in srgb, var(--hero-accent, var(--color-accent)) 25%, transparent);
+    border: 1px solid color-mix(in srgb, var(--hero-accent, var(--color-accent)) 50%, transparent);
+    color: var(--color-accent);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.badge--soon:hover {
+    background: color-mix(in srgb, var(--hero-accent, var(--color-accent)) 35%, transparent);
+    border-color: var(--hero-accent, var(--color-accent));
+    color: var(--color-accent);
+}
+
+/* ── Statuts de diffusion ────────────────────────────────────────────────── */
+
+/* Terminé */
+.badge--status-finished,
+.badge--status-ended {
+    color: #6bcb77;
+    background: rgba(107, 203, 119, 0.08);
+    border-color: rgba(107, 203, 119, 0.25);
+}
+
+/* En cours */
+.badge--status-releasing,
+.badge--status-returning-series {
+    color: #f5c518;
+    background: rgba(245, 197, 24, 0.08);
+    border-color: rgba(245, 197, 24, 0.25);
+}
+
+/* À venir */
+.badge--status-not-yet-released,
+.badge--status-planned {
+    color: #a78bfa;
+    background: rgba(167, 139, 250, 0.08);
+    border-color: rgba(167, 139, 250, 0.25);
+}
+
+/* En pause */
+.badge--status-hiatus {
+    color: #fb923c;
+    background: rgba(251, 146, 60, 0.08);
+    border-color: rgba(251, 146, 60, 0.25);
+}
+
+/* Annulé */
+.badge--status-cancelled,
+.badge--status-canceled {
+    color: #f87171;
+    background: rgba(248, 113, 113, 0.08);
+    border-color: rgba(248, 113, 113, 0.25);
+}
+
+/* En production */
+.badge--status-in-production {
+    color: #38bdf8;
+    background: rgba(56, 189, 248, 0.08);
+    border-color: rgba(56, 189, 248, 0.25);
+}
+
+/* Pilote */
+.badge--status-pilot {
+    color: #94a3b8;
+    background: rgba(148, 163, 184, 0.08);
+    border-color: rgba(148, 163, 184, 0.2);
+}

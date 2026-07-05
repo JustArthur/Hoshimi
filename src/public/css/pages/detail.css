@@ -1,0 +1,345 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   HOSHIMI — Page détail (anime / série / film)
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Hero ────────────────────────────────────────────────────────────────── */
+
+.detail-hero {
+    position: relative;
+    min-height: 480px;
+    overflow: hidden;
+    display: flex;
+    align-items: flex-end;
+}
+
+.detail-hero__backdrop {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center 15%;
+    filter: brightness(0.45) saturate(1.1);
+}
+
+.detail-hero__gradient {
+    position: absolute;
+    inset: 0;
+    background:
+        linear-gradient(to right,
+            var(--color-bg) 0%,
+            rgba(13, 13, 13, 0.88) 30%,
+            rgba(13, 13, 13, 0.4) 50%,
+            transparent 100%),
+        linear-gradient(to top,
+            var(--color-bg) 0%,
+            transparent 45%);
+}
+
+.detail-hero__container {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: var(--max-width);
+    margin-inline: auto;
+    padding-inline: var(--gutter);
+}
+
+.detail-hero__content {
+    padding-top: 80px;
+    padding-bottom: 56px;
+    max-width: min(680px, 58%);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* Mode split : poster gauche + info droite */
+.detail-hero__content--split {
+    flex-direction: row;
+    align-items: flex-end;
+    gap: 32px;
+    max-width: min(940px, 72%);
+}
+
+.detail-hero__poster-col {
+    flex-shrink: 0;
+    width: 185px;
+}
+
+.detail-hero__poster-img {
+    width: 100%;
+    aspect-ratio: 2 / 3;
+    object-fit: cover;
+    border-radius: var(--radius-md);
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.75);
+    display: block;
+}
+
+.detail-hero__info-col {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* Badges Tendance + Score */
+.detail-hero__badges {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+/* Logo image */
+.detail-hero__logo {
+    max-width: 400px;
+    max-height: 140px;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    object-position: left center;
+    filter: drop-shadow(0 2px 20px rgba(0, 0, 0, 0.9));
+}
+
+.detail-hero__title {
+    font-size: clamp(1.8rem, 3.5vw, 2.8rem);
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+}
+
+.detail-hero__subtitle {
+    font-size: 0.9rem;
+    font-style: italic;
+    color: var(--color-text-soft);
+    margin-top: -6px;
+}
+
+/* SÉRIE • ANIMATION • 2026 • 12 ÉPISODES */
+.detail-hero__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 0;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-text-soft);
+}
+
+.detail-hero__meta-type { color: var(--color-accent); }
+
+.detail-hero__meta-sep {
+    margin: 0 8px;
+    opacity: 0.35;
+}
+
+.detail-hero__dates {
+    font-size: 0.78rem;
+    color: var(--color-accent);
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.detail-genres {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.detail-hero__actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding-top: 4px;
+}
+
+/* ── Body ────────────────────────────────────────────────────────────────── */
+
+.detail-body {
+    max-width: var(--max-width);
+    margin-inline: auto;
+    padding: 40px var(--gutter) 96px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 48px;
+}
+
+/* ── Synopsis ────────────────────────────────────────────────────────────── */
+
+.synopsis-section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.synopsis {
+    font-size: 0.93rem;
+    line-height: 1.85;
+    color: var(--color-text-soft);
+    white-space: pre-line;
+}
+
+.synopsis--collapsed {
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    line-clamp: 4;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.synopsis-toggle {
+    align-self: flex-start;
+    font-size: 0.8rem;
+    padding: 4px 14px;
+}
+
+/* ── Season select custom (dropdown stylisé) ─────────────────────────────── */
+
+.season-select-wrap {
+    position: relative;
+    display: inline-block;
+    margin-bottom: 24px;
+}
+
+.season-select-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 16px;
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    color: var(--color-text);
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+    font-family: inherit;
+    user-select: none;
+}
+
+.season-select-btn:hover {
+    border-color: rgba(255, 255, 255, 0.2);
+    background: var(--color-surface);
+}
+
+.season-select-chevron {
+    flex-shrink: 0;
+    opacity: 0.6;
+    transition: transform 0.2s ease;
+}
+
+.season-select-wrap.is-open .season-select-chevron { transform: rotate(180deg); }
+
+.season-select-dropdown {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    min-width: 200px;
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+    list-style: none;
+    padding: 6px;
+    z-index: 200;
+    opacity: 0;
+    transform: translateY(-6px);
+    pointer-events: none;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.season-select-wrap.is-open .season-select-dropdown {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: all;
+}
+
+.season-select-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: calc(var(--radius-md) - 2px);
+    cursor: pointer;
+    transition: background 0.12s;
+}
+
+.season-select-item:hover { background: rgba(255, 255, 255, 0.06); }
+.season-select-item.is-active { color: #fff; }
+
+.season-select-check {
+    width: 16px;
+    flex-shrink: 0;
+    color: var(--color-accent-light);
+    display: flex;
+    align-items: center;
+}
+
+.season-select-info { display: flex; flex-direction: column; gap: 2px; }
+.season-select-name { font-size: 0.88rem; font-weight: 600; line-height: 1.2; }
+.season-select-count { font-size: 0.72rem; color: var(--color-text-muted); }
+
+/* ── Mark-all button ─────────────────────────────────────────────────────── */
+
+#mark-all-btn {
+    font-size: 0.78rem;
+    margin-left: auto;
+}
+
+/* ── Suggestions ─────────────────────────────────────────────────────────── */
+
+.suggestions-section {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* ── Responsive ──────────────────────────────────────────────────────────── */
+
+@media (max-width: 1024px) {
+    .detail-hero__content { max-width: 70%; }
+}
+
+@media (max-width: 768px) {
+    .detail-hero { min-height: 360px; }
+    .detail-hero__logo { max-width: 240px; max-height: 90px; }
+
+    .detail-hero__content {
+        max-width: 100%;
+        padding: 56px var(--gutter) 36px;
+    }
+
+    .detail-hero__content--split {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 20px;
+        max-width: 100%;
+    }
+
+    .detail-hero__poster-col { width: 130px; }
+
+    .detail-hero__actions { flex-wrap: wrap; gap: 8px; }
+    .detail-hero__meta { font-size: 0.7rem; }
+}
+
+@media (max-width: 480px) {
+    .detail-hero { min-height: 320px; }
+    .detail-hero__title { font-size: 1.5rem; }
+    .detail-hero__content { padding: 44px var(--gutter) 28px; }
+    .detail-hero__poster-col { display: none; }
+
+    .detail-hero__actions .btn {
+        flex: 1 1 auto;
+        justify-content: center;
+    }
+
+    .detail-body {
+        padding-top: 24px;
+        padding-bottom: 56px;
+        gap: 32px;
+    }
+}

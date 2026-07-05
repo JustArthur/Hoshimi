@@ -1,0 +1,96 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   HOSHIMI — Section header (detail.css version comme référence)
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.section-header {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.section-header__title {
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--color-text);
+}
+
+/* Barre accent verticale avant le titre */
+.section-header__title::before {
+    content: '';
+    display: inline-block;
+    width: 3px;
+    height: 1em;
+    background: var(--color-accent);
+    border-radius: 2px;
+    margin-right: 10px;
+    vertical-align: middle;
+}
+
+/* Compteur (ex. "12 épisodes") */
+.section-header__count {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    background: var(--color-bg-elevated);
+    padding: 1px 8px;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--color-border);
+}
+
+/* Type badge coloré */
+.section-header__type {
+    display: inline-block;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
+    background: rgba(var(--color-accent-rgb), 0.12);
+    color: var(--color-accent);
+    border: 1px solid rgba(var(--color-accent-rgb), 0.2);
+    vertical-align: middle;
+    margin-left: 8px;
+    line-height: 1.6;
+}
+
+/* Lien "Voir tout" aligné à droite */
+.section-header__link {
+    font-size: 0.85rem;
+    color: var(--color-accent);
+    margin-left: auto;
+    opacity: 0.8;
+    transition: opacity var(--transition-fast);
+}
+
+.section-header__link:hover { opacity: 1; }
+
+/* Sous-titre */
+.section-header__sub {
+    font-size: 0.88rem;
+    color: var(--color-text-muted);
+    margin-top: 4px;
+}
+
+/* Variante "episodes" : moins de marge basse */
+.section-header--episodes { margin-bottom: 16px; }
+
+/* ── Mobile ──────────────────────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+    .section-header {
+        flex-wrap: wrap;
+        gap: 4px 12px;
+        align-items: center;
+    }
+
+    .section-header__title { font-size: 1.1rem; }
+
+    .section-header__sub {
+        flex-basis: 100%;
+        font-size: 0.8rem;
+        margin-top: 2px;
+    }
+}

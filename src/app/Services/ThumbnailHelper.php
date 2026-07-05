@@ -58,13 +58,14 @@ class ThumbnailHelper
         }
     }
 
-    public static function getUrlFromIndex(string $filePath): ?string
+    public static function getUrlFromIndex(string $filePath): string
     {
         if (self::$index === null) {
             self::loadIndex();
         }
         $key = md5($filePath);
-        return self::$index[$key] ?? null;
+        // Si pas encore générée → on pointe vers l'endpoint on-demand
+        return self::$index[$key] ?? '/thumb/?path=' . urlencode($filePath);
     }
 
     // ----------------------------------------------------------------
