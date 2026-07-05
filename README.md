@@ -2,9 +2,9 @@
 
 <div align="center">
 
-**Une médiathèque personnelle Zero-DB pour vos animes locaux**
+**Une médiathèque personnelle Zero-DB pour vos animes, séries et films locaux**
 
-Transformez vos dossiers d'animes en une plateforme de streaming élégante et moderne.  
+Transformez vos dossiers vidéo en une plateforme de streaming élégante et moderne.  
 Pas de base de données, pas de complexité — juste vos fichiers et une interface soignée.
 
 [Installation](#-installation-rapide) • [Fonctionnalités](#-fonctionnalités) • [Configuration](#%EF%B8%8F-configuration) • [FAQ](#-faq)
@@ -17,23 +17,29 @@ Pas de base de données, pas de complexité — juste vos fichiers et une interf
 
 ### 📚 Bibliothèque Intelligente
 - **Scanner automatique** — détecte vos saisons, épisodes et fichiers sans configuration
-- **Métadonnées AniList** — synopsis, scores, genres, studios et bannières synchronisés automatiquement
+- **Triple catalogue** — pages dédiées Animes, Séries et Films avec filtres indépendants
+- **Métadonnées enrichies** — synopsis, scores, genres, studios depuis AniList + TMDB
+- **Genres AniList** — genres précis pour les animes (Action, Mecha, Isekai…) via AniList GraphQL
+- **Genres TMDB** — genres pour séries et films, avec décomposition des genres composés (ex. "Action & Adventure" → deux genres distincts)
 - **Miniatures d'épisodes** — aperçus visuels générés via FFmpeg pour chaque épisode
 - **Multi-format** — supporte MP4, MKV, WebM, AVI avec extraction automatique des métadonnées
 
 ### 🎬 Lecteur Vidéo Avancé
-- **Video.js** — lecteur HTML5 fluide avec contrôles tactiles
+- **Video.js** — lecteur HTML5 fluide et responsive (`fluid: true`)
 - **Reprise de lecture** — reprend exactement là où vous vous êtes arrêté
 - **Épisode suivant automatique** — countdown de 10s à la fin d'un épisode
-- **Raccourcis clavier** — Espace (play/pause), J/L (±10s), F (plein écran), M (mute)
+- **Raccourcis clavier** — Espace (play/pause), J/L (±10s), F (plein écran), M (mute), T (mode théâtre)
 - **Playlist dynamique** — navigation rapide entre les épisodes d'une saison
+- **Suggestions intelligentes** — 10 titres similaires calculés par similarité Jaccard, proximité de note et d'année
 
 ### 🎨 Interface Moderne
-- **Design adaptatif** — responsive mobile, tablette et desktop
+- **Sidebar de filtres** — filtres latéraux style ADN (genre, année, tri) sur toutes les pages catalogue, avec drawer mobile
+- **Design adaptatif** — responsive mobile, tablette et desktop avec breakpoints cohérents à 960px / 768px / 480px
 - **Couleurs dynamiques** — accent personnalisé par anime (extrait depuis AniList)
 - **Mode sombre natif** — interface sombre optimisée pour les longues sessions
-- **Recherche et filtres** — par genre, année, studio, statut
-- **Progression visuelle** — barres de progression sur chaque carte anime
+- **Recherche en direct** — filtrage instantané par titre sans rechargement
+- **Pagination** — 20 titres par page sur les catalogues
+- **Progression visuelle** — barres de progression sur chaque carte épisode
 
 ### 💾 Stockage Local (Zero-DB)
 - **Favoris** — système de favoris géré via localStorage du navigateur
@@ -45,6 +51,7 @@ Pas de base de données, pas de complexité — juste vos fichiers et une interf
 - **Docker optimisé** — consommation RAM/CPU minimale (< 200 MB au repos)
 - **Cache intelligent** — métadonnées mises en cache pour éviter les requêtes API
 - **Streaming efficace** — support des range requests pour le seek instantané
+- **Pages d'erreur custom** — page 404 intégrée, URLs invalides redirigées correctement
 
 ---
 
@@ -55,10 +62,10 @@ Pas de base de données, pas de complexité — juste vos fichiers et une interf
 | **Installation** | 5 min avec Docker | 30+ min + configuration |
 | **Base de données** | ❌ Aucune | ✅ PostgreSQL/SQLite |
 | **RAM utilisée** | ~150 MB | 500 MB - 2 GB |
-| **Métadonnées** | AniList (spécialisé anime) | TMDB/TVDB (généraliste) |
+| **Métadonnées** | AniList + TMDB (anime-first) | TMDB/TVDB (généraliste) |
 | **Transcoding** | ❌ Lecture directe | ✅ (gourmand en CPU) |
 | **Interface** | Moderne, épurée | Complète, complexe |
-| **Idéal pour** | Collection anime locale | Médiathèque complète (films/séries) |
+| **Idéal pour** | Collection anime/série/film locale | Médiathèque complète |
 
 ---
 
@@ -67,7 +74,7 @@ Pas de base de données, pas de complexité — juste vos fichiers et une interf
 - **Windows 10/11** avec WSL2 activé ([guide Microsoft](https://learn.microsoft.com/fr-fr/windows/wsl/install))
 - **Docker Desktop** ([télécharger](https://www.docker.com/products/docker-desktop/))
 - **PowerShell 5.1+** (inclus dans Windows)
-- **Dossier d'animes** organisé en saisons/épisodes
+- **Dossier de médias** organisé en saisons/épisodes
 
 ---
 
@@ -81,26 +88,23 @@ cd Hoshimi
 
 ### 2️⃣ Configuration initiale
 ```bash
-# Copie le fichier de configuration
 cp .env.example .env
-
-# Édite le .env avec ton éditeur préféré
 notepad .env
 ```
 
-**Variables importantes à modifier :**
-```env
-# Client AniDB (optionnel) → https://wiki.anidb.net/HTTP_API_Definition
-ANIDB_CLIENT=hoshimi
-```
-
-### 3️⃣ Pointer vers vos animes
-Éditez `docker-compose.yml` ligne **~30** :
+### 3️⃣ Pointer vers vos médias
+Éditez `docker-compose.yml` :
 ```yaml
 volumes:
   animes_data:
     driver_opts:
-      device: "Y:\\Animes"  # ← Remplacez par votre chemin
+      device: "Y:\\Animes"   # ← Votre dossier d'animes
+  series_data:
+    driver_opts:
+      device: "Y:\\Series"   # ← Votre dossier de séries
+  films_data:
+    driver_opts:
+      device: "Y:\\Films"    # ← Votre dossier de films
 ```
 
 ### 4️⃣ Démarrage
@@ -114,32 +118,24 @@ docker compose up -d
 
 ## 📂 Structure des Fichiers Attendue
 
-Pour que Hoshimi détecte correctement vos animes, organisez-les ainsi :
-
+### Animes
 ```
 Y:\Animes\
 ├── One Piece\
 │   ├── Season 01\
 │   │   ├── One Piece S01E01 720p VOSTFR.mp4
-│   │   ├── One Piece S01E02 720p VOSTFR.mp4
 │   │   └── ...
 │   ├── Season 02\
-│   │   └── ...
-│   ├── One Piece-metadata.json       # ← Généré automatiquement
-│   └── One Piece-cover.jpg           # ← Téléchargé depuis AniList
+│   └── metadata.json        # ← Généré automatiquement
 │
-├── Attack on Titan\
-│   ├── Season 01\
-│   ├── Season 02\
-│   ├── Attack on Titan-metadata.json
-│   └── Attack on Titan-cover.jpg
-│
-└── Jujutsu Kaisen\
-    ├── Season 00\                     # ← Films / OAV
-    │   └── Jujutsu Kaisen 0.mp4
+└── Attack on Titan\
+    ├── Season 00\            # ← Films / OAV
     ├── Season 01\
-    └── ...
+    └── metadata.json
 ```
+
+### Séries & Films
+Même structure — un dossier par titre, saisons numérotées.
 
 ### 📝 Règles de Nommage
 
@@ -151,13 +147,13 @@ Y:\Animes\
 #### 🏷️ Tags détectés automatiquement
 | Tag | Affiché dans | Exemple |
 |-----|--------------|---------|
-| **Qualité** | Carte épisode | `720p`, `1080p`, `4K` |
-| **Langue** | Badge couleur | `VOSTFR`, `VF`, `MULTI` |
+| **Qualité** | Badge épisode | `720p`, `1080p`, `4K` |
+| **Langue** | Badge couleur | `VOSTFR`, `VF`, `MULTI`, `VO` |
 | **Fansub** | Ignoré | `[Team]`, `(Group)` |
 
 #### 🎬 Saisons spéciales
 - **Season 00** → Films / OAV / Spéciaux
-- **Season 01, 02...** → Saisons normales
+- **Season 01, 02…** → Saisons normales
 
 ---
 
@@ -165,37 +161,26 @@ Y:\Animes\
 
 ### 🔄 Synchronisation des Métadonnées
 
-Hoshimi peut récupérer automatiquement les informations depuis AniList.
-
-**Option A : Via Docker (recommandé)**
 ```bash
-docker compose exec php php /var/www/html/cli/fetch-metadata.php
-```
+# Animes — récupère TMDB + AniList (genres précis)
+python src/cli/fetch_metadata.py --media anime --scan Y:/Animes
 
-**Option B : Via PowerShell (si problèmes de permissions)**
-```powershell
-.\Get-AnimeData.ps1 -AnimePath "Y:\Animes"
-```
+# Forcer la re-synchronisation même si déjà présent
+python src/cli/fetch_metadata.py --media anime --scan Y:/Animes --force
 
-**Options du script PowerShell :**
-```powershell
-# Forcer le re-téléchargement même si déjà présent
-.\Get-AnimeData.ps1 -Force
+# Séries / Films
+python src/cli/fetch_metadata.py --media serie --scan Y:/Series
+python src/cli/fetch_metadata.py --media film  --scan Y:/Films
 
-# Scanner un autre dossier
-.\Get-AnimeData.ps1 -AnimePath "D:\Mes Animes"
+# Vider le cache PHP après une synchronisation
+docker exec hoshimi_php sh -c "rm -f /tmp/hoshimi_scanner_*.json"
 ```
 
 ### 🖼️ Génération des Miniatures
 
-Créez des aperçus visuels pour chaque épisode :
-
 ```bash
 # Générer toutes les miniatures
 docker compose exec php php /var/www/html/cli/generate-thumbnails.php
-
-# Générer pour un seul anime
-docker compose exec php php /var/www/html/cli/generate-thumbnails.php --anime=One+Piece
 
 # Forcer la régénération
 docker compose exec php php /var/www/html/cli/generate-thumbnails.php --force
@@ -217,6 +202,7 @@ docker compose exec php php /var/www/html/cli/generate-thumbnails.php --at=20
 | **Logs PHP uniquement** | `docker compose logs -f php` |
 | **Rebuilder (après MAJ)** | `docker compose up -d --build` |
 | **Accès shell PHP** | `docker compose exec php sh` |
+| **Vider cache scanner** | `docker exec hoshimi_php sh -c "rm -f /tmp/hoshimi_scanner_*.json"` |
 
 ---
 
@@ -224,23 +210,12 @@ docker compose exec php php /var/www/html/cli/generate-thumbnails.php --at=20
 
 ### ❌ Permission Denied sur Windows
 
-**Symptôme :** Le script ne peut pas écrire les métadonnées ou thumbnails.
-
-**Solution :**
-1. Clic droit sur `Y:\Animes` → Propriétés → Sécurité
-2. Modifier → Ajouter → Tapez "Tout le monde" → OK
+1. Clic droit sur votre dossier médias → Propriétés → Sécurité
+2. Modifier → Ajouter → "Tout le monde" → OK
 3. Cochez "Contrôle total" → Appliquer
-
-**Alternative :** Utilisez le script PowerShell qui hérite de vos permissions Windows.
 
 ### ❌ "No compatible source was found for this media"
 
-**Causes possibles :**
-1. Le fichier n'existe pas au chemin indiqué
-2. Le volume Docker n'est pas monté correctement
-3. Codec vidéo non supporté (H.265/HEVC)
-
-**Vérification :**
 ```bash
 # Vérifie que Docker voit tes fichiers
 docker compose exec php ls /media/animes/
@@ -251,10 +226,16 @@ docker compose exec php ffprobe "/media/animes/One Piece/Season 01/..."
 
 ### ❌ Les miniatures ne se génèrent pas
 
-**Vérifications :**
-1. FFmpeg est installé : `docker compose exec php ffmpeg -version`
-2. Permissions en écriture : `docker compose exec php ls -la /var/www/html/public/images/thumbnails/`
-3. Espace disque suffisant
+1. FFmpeg installé : `docker compose exec php ffmpeg -version`
+2. Permissions : `docker compose exec php ls -la /var/www/html/public/images/thumbnails/`
+
+### ❌ Genres insuffisants pour les animes
+
+Relancez le script avec `--force` pour récupérer les genres AniList :
+```bash
+python src/cli/fetch_metadata.py --media anime --scan Y:/Animes --force
+docker exec hoshimi_php sh -c "rm -f /tmp/hoshimi_scanner_*.json"
+```
 
 ---
 
@@ -262,57 +243,29 @@ docker compose exec php ffprobe "/media/animes/One Piece/Season 01/..."
 
 ### Sur le Réseau Local
 
-1. **Trouvez l'IP de votre PC :**
-   ```bash
-   ipconfig
-   # Cherchez "Adresse IPv4" → ex: 192.168.1.42
-   ```
-
-2. **Depuis mobile/tablette :**
-   ```
-   http://192.168.1.42:8080
-   ```
+```bash
+ipconfig  # Cherchez "Adresse IPv4" → ex: 192.168.1.42
+```
+Depuis mobile/tablette : `http://192.168.1.42:8080`
 
 ### Sur Internet (Avancé)
 
 ⚠️ **Non recommandé sans VPN** — exposerait vos fichiers en ligne.
 
-Si vous souhaitez un accès externe sécurisé :
-- Utilisez **Tailscale** (VPN mesh gratuit)
-- Ou **Cloudflare Tunnel** (gratuit, aucun port forwarding)
+- **Tailscale** (VPN mesh gratuit)
+- **Cloudflare Tunnel** (gratuit, aucun port forwarding)
 
 ---
 
 ## 🔑 Clés API
 
 ### AniList
-**Gratuit • Aucune clé requise**
-
+**Gratuit • Aucune clé requise**  
 L'API GraphQL d'AniList ne nécessite pas d'authentification pour la lecture.
 
-### AniDB (Optionnel)
-**Gratuit • Validation manuelle**
-
-1. Enregistrez votre client sur [anidb.net](https://anidb.net/software/add)
-2. Attendez validation (1-3 jours)
-3. Ajoutez dans `.env` → `ANIDB_CLIENT=hoshimi`
-
-⚠️ **Rate-limit strict** : 1 requête toutes les 2 secondes maximum.
-
----
-
-## 🎨 Personnalisation
-
-### Couleurs d'Accent
-
-Hoshimi extrait automatiquement la couleur dominante de chaque anime depuis AniList et l'applique à toute l'interface de détail. Aucune configuration nécessaire !
-
-### Styles Custom
-
-Éditez `src/public/css/hoshimi_base.css` pour personnaliser :
-- Variables CSS (couleurs, typographie)
-- Bordures et coins arrondis
-- Espacements
+### TMDB
+**Gratuit • Clé requise**  
+Créez un compte sur [themoviedb.org](https://www.themoviedb.org/settings/api) et ajoutez dans `.env` → `TMDB_API_KEY=...`
 
 ---
 
@@ -323,16 +276,14 @@ Hoshimi extrait automatiquement la couleur dominante de chaque anime depuis AniL
 | **Frontend** | HTML5, CSS3, JavaScript | Native |
 | **Backend** | PHP | 8.3 |
 | **Serveur Web** | Nginx | 1.25 |
-| **Lecteur Vidéo** | Video.js | 8.10 |
+| **Lecteur Vidéo** | Video.js (fluid/responsive) | 8.10 |
 | **Métadonnées** | FFmpeg, FFprobe | 8.0 |
-| **APIs** | AniList GraphQL, TMDB REST | - |
-| **Container** | Docker, Alpine Linux | - |
+| **APIs** | AniList GraphQL, TMDB REST | — |
+| **Container** | Docker, Alpine Linux | — |
 
 ---
 
 ## 🤝 Contribution
-
-Les contributions sont les bienvenues ! Pour proposer des améliorations :
 
 1. Fork le projet
 2. Créez une branche (`git checkout -b feature/amelioration`)
@@ -350,20 +301,23 @@ Ce projet est sous licence MIT. Voir `LICENSE` pour plus de détails.
 
 ## ❓ FAQ
 
-**Q : Hoshimi peut-il gérer des films ?**  
-R : Actuellement optimisé pour les séries anime. Support films prévu dans une future version.
+**Q : Hoshimi supporte-t-il les films et séries ?**  
+R : Oui — trois catalogues distincts : Animes, Séries et Films, chacun avec ses propres filtres et métadonnées.
 
 **Q : Faut-il une connexion internet ?**  
 R : Seulement pour la synchronisation des métadonnées. Le streaming local fonctionne hors ligne.
 
 **Q : Puis-je utiliser Hoshimi sur Linux/macOS ?**  
-R : Oui via Docker, mais les scripts PowerShell nécessitent une adaptation (bash).
+R : Oui via Docker. Les chemins dans `docker-compose.yml` sont à adapter (format Unix).
 
 **Q : Les sous-titres externes sont-ils supportés ?**  
 R : Pas pour le moment.
 
 **Q : Quelle est la consommation réseau ?**  
 R : ~10-50 MB pour les métadonnées initiales. Le streaming est 100% local (0 MB internet).
+
+**Q : Pourquoi mes genres animes sont-ils peu nombreux ?**  
+R : Relancez `fetch_metadata.py --force` pour enrichir avec les genres AniList, puis videz le cache PHP.
 
 ---
 
