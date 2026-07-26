@@ -23,10 +23,46 @@
 @import url('./components/modal.css');
 @import url('./components/toast.css');
 @import url('./components/empty.css');
+@import url('./components/checkbox.css');
+@import url('./components/select.css');
+@import url('./components/spinner.css');
 
 /* ── Pages ───────────────────────────────────────────────────────────────── */
 @import url('./pages/home.css');
 @import url('./pages/detail.css');
 @import url('./pages/player.css');
-@import url('./pages/stats.css');
 @import url('./pages/error.css');
+@import url('./pages/search.css');
+@import url('./pages/favoris.css');
+@import url('./pages/profil.css');
+@import url('./pages/wishboard.css');
+
+/* ── Animations globales ─────────────────────────────────────────────────── */
+@import url('./animations.css');
+
+/* ── Transitions de page (View Transitions API — Chrome 126+) ────────────── */
+@view-transition {
+    navigation: auto;
+}
+
+@keyframes vt-fade-in {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+}
+
+@keyframes vt-fade-out {
+    to {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+}
+
+::view-transition-old(root) {
+    animation: 180ms ease both vt-fade-out;
+}
+
+::view-transition-new(root) {
+    animation: 240ms ease both vt-fade-in;
+}

@@ -1,0 +1,152 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   HOSHIMI — Page de recherche
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.search-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    padding: 100px 0;
+    color: var(--color-text-muted);
+    font-size: 0.95rem;
+}
+
+/* ── Header ──────────────────────────────────────────────────────────────── */
+
+.srp-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    margin-bottom: 32px;
+    flex-wrap: wrap;
+}
+
+.srp-header__count {
+    font-size: 0.9rem;
+    color: var(--color-text-muted);
+    margin: 0;
+}
+
+.srp-header__count em {
+    font-style: normal;
+    color: var(--color-text);
+    font-weight: 600;
+}
+
+.srp-header__num {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--color-text);
+    font-variant-numeric: tabular-nums;
+}
+
+/* ── Onglets filtres ─────────────────────────────────────────────────────── */
+
+.srp-tabs {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 8px;
+    padding: 4px;
+}
+
+.srp-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    border-radius: 5px;
+    border: none;
+    background: none;
+    color: var(--color-text-muted);
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s;
+    white-space: nowrap;
+}
+
+.srp-tab:hover {
+    color: var(--color-text);
+    background: rgba(255,255,255,0.05);
+}
+
+.srp-tab.is-active {
+    background: rgba(255,255,255,0.1);
+    color: var(--color-text);
+    font-weight: 600;
+}
+
+.srp-tab__count {
+    font-size: 0.7rem;
+    font-weight: 700;
+    background: rgba(255,255,255,0.08);
+    color: var(--color-text-muted);
+    padding: 1px 6px;
+    border-radius: 10px;
+    font-variant-numeric: tabular-nums;
+}
+
+.srp-tab[hidden] { display: none; }
+
+.srp-tab.is-active .srp-tab__count {
+    background: rgba(var(--color-accent-rgb), 0.2);
+    color: var(--color-accent);
+}
+
+/* ── Section par type ────────────────────────────────────────────────────── */
+
+.srp-section {
+    margin-bottom: 48px;
+}
+
+.srp-section__header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+.srp-type-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    padding: 4px 10px;
+    border-radius: 4px;
+}
+
+.srp-type-label--anime  { color: #7eb8f7; background: rgba(126,184,247,0.12); }
+.srp-type-label--serie  { color: #87d68b; background: rgba(135,214,139,0.12); }
+.srp-type-label--film   { color: #f7b76b; background: rgba(247,183,107,0.12); }
+
+.srp-section__count {
+    font-size: 0.78rem;
+    color: var(--color-text-muted);
+    background: rgba(255,255,255,0.06);
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ── Responsive ──────────────────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+    .srp-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 14px;
+    }
+
+    .srp-tabs {
+        width: 100%;
+        overflow-x: auto;
+    }
+}

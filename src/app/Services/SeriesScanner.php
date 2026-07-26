@@ -5,7 +5,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/AnimeScanner.php';
 
 // ============================================================
-//  SeriesScanner — Scan des séries depuis D:\Series
+//  SeriesScanner — Scan des séries depuis Y:\Series
 //  Identique à AnimeScanner mais :
 //   - Chemin configurable via SERIES_PATH
 //   - Regex épisode tolère les tags H264/H265/x265/HEVC

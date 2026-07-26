@@ -2,60 +2,118 @@
    HOSHIMI — Design tokens & base reset
    ══════════════════════════════════════════════════════════════════════════ */
 
-@import url('https://api.fontshare.com/v2/css?f[]=clash-grotesk@300,400,500,600,700&display=swap');
+@font-face {
+    font-family: 'Clash Grotesk';
+    src: url('/fonts/clash-grotesk/ClashGrotesk-300.woff2') format('woff2');
+    font-weight: 300;
+    font-display: swap;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'Clash Grotesk';
+    src: url('/fonts/clash-grotesk/ClashGrotesk-400.woff2') format('woff2');
+    font-weight: 400;
+    font-display: swap;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'Clash Grotesk';
+    src: url('/fonts/clash-grotesk/ClashGrotesk-500.woff2') format('woff2');
+    font-weight: 500;
+    font-display: swap;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'Clash Grotesk';
+    src: url('/fonts/clash-grotesk/ClashGrotesk-600.woff2') format('woff2');
+    font-weight: 600;
+    font-display: swap;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'Clash Grotesk';
+    src: url('/fonts/clash-grotesk/ClashGrotesk-700.woff2') format('woff2');
+    font-weight: 700;
+    font-display: swap;
+    font-style: normal;
+}
+
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;700&display=swap');
+
+@font-face {
+    font-family: 'Bricolage Grotesque';
+    src: url('/fonts/bricolage-grotesque/BricolageGrotesque-LatinExt.woff2') format('woff2');
+    font-weight: 200 800;
+    font-style: normal;
+    font-display: swap;
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+    font-family: 'Bricolage Grotesque';
+    src: url('/fonts/bricolage-grotesque/BricolageGrotesque-Latin.woff2') format('woff2');
+    font-weight: 200 800;
+    font-style: normal;
+    font-display: swap;
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
 
 /* ── Variables ───────────────────────────────────────────────────────────── */
 
 :root {
     /* Couleurs fond */
-    --color-bg:           #0d0d0d;
-    --color-bg-card:      #131313;
-    --color-bg-card-rgb:  19, 19, 19;
-    --color-bg-elevated:  #1a1a1a;
-    --color-surface:      #222222;
+    --color-bg: #0d0d0d;
+    --color-bg-card: #111111;
+    --color-bg-card-rgb: 17, 17, 17;
+    --color-bg-elevated: #161616;
+    --color-surface: #1b1b1b;
 
     /* Couleurs texte */
-    --color-text:         #f0f0f0;
-    --color-text-muted:   #777777;
-    --color-text-soft:    #aaaaaa;
+    --color-text: #ebebeb;
+    --color-text-muted: #6a6a6a;
+    --color-text-soft: #a0a0a0;
 
     /* Bordures */
-    --color-border:       rgba(255, 255, 255, 0.07);
-    --color-border-soft:  rgba(255, 255, 255, 0.03);
+    --color-border: rgba(255, 255, 255, 0.08);
+    --color-border-soft: rgba(255, 255, 255, 0.05);
 
-    /* Accent (dynamique via hoshimi_accent.js) */
-    --color-accent:       #F7D622;
-    --color-accent-rgb:   247, 214, 34;
-    --color-accent-dim:   rgba(247, 214, 34, 0.15);
-    --color-accent-glow:  rgba(247, 214, 34, 0.25);
-    --color-accent-light: #c0253d;
-    --color-accent-text:  #000;
-
+    /* Accent */
+    --color-accent: #c8a468;
+    --color-accent-rgb: 200, 164, 104;
+    --color-accent-dim: rgba(200, 164, 104, 0.15);
+    --color-accent-glow: rgba(200, 164, 104, 0.25);
+    --color-danger: #ef4444;
+    --color-accent-text: #000;
+    
     /* Typographie */
     --font-main: 'Clash Grotesk', system-ui, sans-serif;
-    --font-jp:   'Noto Sans JP', sans-serif;
+    --font-display: 'Bricolage Grotesque', sans-serif;
+    --font-jp: 'Noto Sans JP', sans-serif;
 
     /* Layout */
-    --max-width:  1400px;
-    --gutter:     clamp(16px, 4vw, 48px);
-    --nav-height: 68px;
+    --max-width: 1400px;
+    --gutter: clamp(16px, 4vw, 48px);
+    --nav-height: 48px;
 
     /* Border-radius */
-    --radius-sm:   .5rem;
-    --radius-md:   .75rem;
+    --radius-sm: 4px;
+    --radius-md: .75rem;
     --radius-pill: 999px;
 
     /* Transitions */
-    --transition-fast:   0.15s ease;
-    --transition-base:   0.25s ease;
-    --transition-slow:   0.4s ease;
+    --transition-fast: 0.15s ease;
+    --transition-base: 0.25s ease;
+    --transition-slow: 0.4s ease;
     --transition-smooth: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 
     /* Ombres */
-    --shadow-sm:     0 2px 8px rgba(0, 0, 0, .4);
-    --shadow-md:     0 4px 20px rgba(0, 0, 0, .5);
-    --shadow-lg:     0 8px 40px rgba(0, 0, 0, .6);
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, .4);
+    --shadow-md: 0 4px 20px rgba(0, 0, 0, .5);
+    --shadow-lg: 0 8px 40px rgba(0, 0, 0, .6);
     --shadow-accent: 0 0 20px var(--color-accent-glow);
 }
 
@@ -68,6 +126,7 @@
     margin: 0;
     padding: 0;
     user-select: none;
+    color-scheme: dark;
 }
 
 html {
@@ -90,70 +149,105 @@ body {
     flex-direction: column;
 }
 
-/* Grille perspective de fond */
-body::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    background-image:
-        linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
-        linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-    background-size: 40px 40px;
-    transform: perspective(500px) rotateX(25deg) translateY(-15%);
-    transform-origin: top;
-    mask-image: linear-gradient(to bottom, black, transparent);
-    -webkit-mask-image: linear-gradient(to bottom, black, transparent);
-    pointer-events: none;
-    z-index: -1;
-    opacity: 0.5;
+
+img,
+video {
+    display: block;
 }
 
-img, video { display: block; max-width: 100%; }
+a {
+    color: inherit;
+    text-decoration: none;
+    cursor: pointer;
+}
 
-a { color: inherit; text-decoration: none; cursor: pointer; }
+ul,
+ol {
+    list-style: none;
+}
 
-ul, ol { list-style: none; }
+button {
+    font-family: inherit;
+    cursor: pointer;
+    border: none;
+    background: none;
+}
 
-button { font-family: inherit; cursor: pointer; border: none; background: none; }
+input,
+select,
+textarea {
+    font-family: inherit;
+    font-size: inherit;
+}
 
-input, select, textarea { font-family: inherit; font-size: inherit; }
-
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
     font-weight: 700;
     line-height: 1.2;
     letter-spacing: -0.02em;
 }
 
-h1 { font-size: clamp(2rem, 5vw, 3.5rem); }
-h2 { font-size: clamp(1.5rem, 3vw, 2.25rem); }
-h3 { font-size: clamp(1.2rem, 2vw, 1.5rem); }
-h4 { font-size: 1.125rem; }
+h1 {
+    font-size: clamp(2rem, 5vw, 3.5rem);
+}
+
+h2 {
+    font-size: clamp(1.5rem, 3vw, 2.25rem);
+}
+
+h3 {
+    font-size: clamp(1.2rem, 2vw, 1.5rem);
+}
+
+h4 {
+    font-size: 1.125rem;
+}
 
 /* ── Scrollbar ───────────────────────────────────────────────────────────── */
 
-::-webkit-scrollbar       { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: var(--color-bg); }
-::-webkit-scrollbar-thumb { background: var(--color-surface); border-radius: var(--radius-pill); }
-::-webkit-scrollbar-thumb:hover { background: var(--color-accent); }
-
-/* ── Transition accent globale (pour changement de couleur dynamique) ─────── */
-
-*,
-*::before,
-*::after {
-    --_accent-props: color, background-color, border-color, box-shadow;
-    transition-property: var(--_accent-props);
-    transition-duration: 0.6s;
-    transition-timing-function: ease;
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
 }
 
-img, video { transition: none; }
+::-webkit-scrollbar-track {
+    background: var(--color-bg);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--color-surface);
+    border-radius: var(--radius-sm);
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--color-accent);
+}
+
+img,
+video {
+    transition: none;
+}
+
+/* ── Bricolage Grotesque — optical sizing ────────────────────────────────── */
+
+:where([style*="font-display"], .page-hero__title, .fav-hero__title) {
+    font-optical-sizing: auto;
+}
 
 /* ── Keyframes ───────────────────────────────────────────────────────────── */
 
 @keyframes fadeIn {
-    from { opacity: 0; }
-    to   { opacity: 1; }
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
 }
 
 
@@ -161,9 +255,9 @@ img, video { transition: none; }
 
 @media (max-width: 768px) {
     :root {
-        --transition-fast:   0s;
-        --transition-base:   0s;
-        --transition-slow:   0s;
+        --transition-fast: 0s;
+        --transition-base: 0s;
+        --transition-slow: 0s;
         --transition-smooth: none;
     }
 }

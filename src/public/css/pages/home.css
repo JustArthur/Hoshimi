@@ -2,7 +2,7 @@
    HOSHIMI — Page d'accueil (hero spotlight)
    ══════════════════════════════════════════════════════════════════════════ */
 
-.home-hero {
+.home-hero-slider {
     position: relative;
     width: 100%;
     min-height: 540px;
@@ -10,17 +10,29 @@
     background: #080808;
 }
 
-/* Couleur d'accent du hero utilisée pour le bouton primaire */
-.home-hero .btn--primary {
-    background: var(--color-accent);
+.home-hero {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.9s ease;
+}
+
+.home-hero.is-active {
+    opacity: 1;
+    pointer-events: auto;
 }
 
 .home-hero__backdrop {
     position: absolute;
-    inset: 0;
+    top: -80px;
+    right: 0;
+    bottom: 0;
+    left: 0;
     background-size: cover;
     background-position: center 20%;
     background-repeat: no-repeat;
+    will-change: transform;
 }
 
 .home-hero__backdrop--portrait {
@@ -68,7 +80,10 @@
     letter-spacing: 0.14em;
     text-transform: uppercase;
     padding: 4px 10px;
-    border-radius: 4px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    gap: 5px;
+    align-items: center;
 }
 
 .home-hero__type-badge--anime,
@@ -111,25 +126,34 @@
 .home-hero__meta {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 5px;
     flex-wrap: wrap;
 }
 
 .home-hero__score {
+    font-size: 0.7rem;
+    font-weight: 600;
     color: var(--color-accent);
-    font-weight: 700;
-    font-size: 0.88rem;
+    background: color-mix(in srgb, var(--color-bg) 25%, transparent);
+    padding: 2px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--color-accent-glow);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    gap: 5px;
 }
 
 .home-hero__genre {
-    font-size: 0.8rem;
-    color: rgba(255, 255, 255, 0.55);
+    font-size: 0.7rem;
+    color: #fff;
+    background: color-mix(in srgb, var(--color-bg) 25%, transparent);
+    padding: 2px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--color-border);
+    backdrop-filter: blur(4px);
 }
 
-.home-hero__genre:not(:last-child)::after {
-    content: ' ·';
-    color: rgba(255, 255, 255, 0.25);
-}
 
 .home-hero__synopsis {
     font-size: 0.88rem;
@@ -149,8 +173,34 @@
     margin-top: 4px;
 }
 
+/* ── Animation d'entrée du contenu ──────────────────────────────────────── */
+
+.home-hero__content {
+    animation: heroContentIn 0.6s ease forwards;
+}
+
+.home-hero:not(.is-active) .home-hero__content {
+    opacity: 0;
+}
+
+.home-hero__content.hero-content--in {
+    animation: heroContentIn 0.6s ease forwards;
+}
+
+@keyframes heroContentIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
 /* Fondu bas vers le fond de page */
-.home-hero::after {
+.home-hero-slider::after {
     content: '';
     position: absolute;
     bottom: 0;
@@ -165,17 +215,32 @@
 /* ── Mobile ──────────────────────────────────────────────────────────────── */
 
 @media (max-width: 768px) {
+    .home-hero-slider {
+        min-height: 420px;
+    }
+
+    /* Assombrit toute l'image + côté droit pour éviter le débordement visuel */
     .home-hero__gradient {
         background:
-            linear-gradient(to top, rgba(8, 8, 8, 0.99) 0%, rgba(8, 8, 8, 0.65) 38%, rgba(8, 8, 8, 0.12) 100%),
-            linear-gradient(to bottom, rgba(8, 8, 8, 0.45) 0%, transparent 22%);
+            linear-gradient(to right, rgba(8, 8, 8, 0.82) 0%, rgba(8, 8, 8, 0.55) 60%, rgba(8, 8, 8, 0.25) 100%),
+            linear-gradient(to top, rgba(8, 8, 8, 0.98) 0%, rgba(8, 8, 8, 0.55) 35%, rgba(8, 8, 8, 0.1) 100%),
+            linear-gradient(to bottom, rgba(8, 8, 8, 0.4) 0%, transparent 20%);
     }
 
     .home-hero__content {
         max-width: 100%;
-        padding-top: 48px;
-        padding-bottom: 70px;
-        gap: 11px;
+        padding-top: 44px;
+        padding-bottom: 56px;
+        gap: 10px;
+    }
+
+    .home-hero__logo {
+        max-width: 220px;
+        max-height: 80px;
+    }
+
+    .home-hero__title {
+        font-size: clamp(1.5rem, 6vw, 2.2rem);
     }
 
     .home-hero__synopsis {
@@ -184,37 +249,32 @@
         font-size: 0.82rem;
     }
 
-    .home-hero__logo {
-        max-width: 260px;
-        max-height: 90px;
-    }
-
-    .home-hero__title {
-        font-size: clamp(1.5rem, 6vw, 2.2rem);
-    }
-
     .home-hero__actions {
-        flex-wrap: wrap;
+        flex-direction: column;
         gap: 8px;
+    }
+
+    .home-hero__actions .btn {
+        justify-content: center;
+        width: 100%;
     }
 }
 
 @media (max-width: 480px) {
+    .home-hero-slider {
+        min-height: 380px;
+    }
+
     .home-hero__logo {
-        max-width: 200px;
-        max-height: 70px;
+        max-width: 170px;
+        max-height: 65px;
     }
 
     .home-hero__title {
         font-size: clamp(1.3rem, 7vw, 1.8rem);
     }
 
-    .home-hero__synopsis {
-        display: none;
-    }
-
-    .home-hero__actions .btn {
-        flex: 1 1 auto;
-        justify-content: center;
+    .home-hero__genre {
+        font-size: 0.75rem;
     }
 }

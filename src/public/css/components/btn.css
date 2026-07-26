@@ -5,26 +5,74 @@
 .btn {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    padding: 10px 22px;
+    gap: 10px;
+    padding: 10px 30px;
     border-radius: var(--radius-sm);
-    font-size: 0.9rem;
+    font-size: 14px;
     font-weight: 600;
     cursor: pointer;
     font-family: inherit;
-    border: 1px solid transparent;
     text-decoration: none;
     transition: all var(--transition-fast);
 }
 
 .btn--primary {
-    background: var(--color-accent);
-    color: var(--color-accent-text);
+    background: var(--color-text);
+    color: var(--color-bg);
 }
 
 .btn--primary:hover {
-    filter: brightness(1.1);
-    box-shadow: 0 0 20px color-mix(in srgb, var(--color-accent) 25%, transparent);
+    background: #fff;
+}
+
+
+/* ── Bouton reprendre ────────────────────────────────────────────────────── */
+
+.btn--resume {
+    position: relative;
+    overflow: hidden;
+    background: #fff;
+    color: #0a0a0a;
+    border: none;
+    gap: 7px;
+}
+
+.btn--resume:hover {
+    background: rgba(255, 255, 255, 0.88);
+    color: #0a0a0a;
+}
+
+.btn-resume__sep {
+    color: rgba(0, 0, 0, 0.3);
+    font-weight: 400;
+}
+
+.btn-resume__ep {
+    font-size: 0.82em;
+    font-weight: 600;
+    color: rgba(0, 0, 0, 0.6);
+}
+
+.btn-resume__time {
+    font-size: 0.82em;
+    font-weight: 500;
+    color: rgba(0, 0, 0, 0.5);
+    font-variant-numeric: tabular-nums;
+}
+
+.btn-resume__bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.btn-resume__fill {
+    display: block;
+    height: 100%;
+    background: var(--color-accent);
 }
 
 .btn--secondary {
@@ -39,13 +87,15 @@
 }
 
 .btn--ghost {
-    background: transparent;
-    color: var(--color-text);
+    background: color-mix(in srgb, var(--color-bg) 25%, transparent);
+    color: #fff;
     border: 1px solid var(--color-border);
+    backdrop-filter: blur(10px);
+    font-weight: 500;
 }
 
-.btn--ghost.is-active,
-.btn--ghost:hover {
+.btn--ghost:hover,
+.btn--ghost.is-active {
     border-color: var(--color-accent);
     color: var(--color-accent);
 }
@@ -63,27 +113,50 @@
     border-color: var(--color-accent);
 }
 
-/* ── Actions liste ───────────────────────────────────────────────────────── */
-
-.btn-list-action {
-    background: none;
-    border: none;
-    padding: 6px;
-    cursor: pointer;
-    color: var(--color-accent);
-    opacity: 0.3;
-    transition: all 0.2s ease;
+.btn-admin {
+    flex: 1;
     display: flex;
+    justify-content: center;
     align-items: center;
-    border-radius: 4px;
 }
 
-.btn-list-action:hover {
-    opacity: 1;
-    background: rgba(255, 255, 255, 0.05);
+.btn--red {
+    color: var(--color-danger);
+    background: transparent;
 }
 
-.btn-list-action--danger:hover {
-    color: #ff4d4d;
-    background: rgba(255, 77, 77, 0.1);
+.btn--red:hover {
+    background: rgba(239, 68, 68, 0.08);
+    border-color: 1px solid var(--color-danger);
+    color: var(--color-danger);
+}
+
+.btn--large {
+    width: 100%;
+    justify-content: center;
+}
+
+.btn--small {
+    padding: 8px 10px;
+    font-size: 0.78rem;
+}
+
+.btn--accept {
+    background: rgba(34, 197, 94, .1);
+    color: #4ade80;
+    border-color: rgba(34, 197, 94, .22);
+}
+
+.btn--accept:hover {
+    background: rgba(34, 197, 94, .2);
+}
+
+.btn--reject {
+    background: rgba(239, 68, 68, .08);
+    color: #f87171;
+    border-color: rgba(239, 68, 68, .2);
+}
+
+.btn--reject:hover {
+    background: rgba(239, 68, 68, .18);
 }

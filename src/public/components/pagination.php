@@ -13,34 +13,43 @@ function render_pagination(int $page, int $totalPages, callable $urlFn): string
 {
     if ($totalPages <= 1) return '';
 
-    $h  = '<div class="pagination">';
+    $firstBtn = $page > 1
+        ? '<a href="' . htmlspecialchars($urlFn(1)) . '" class="pagination__btn pagination__btn--icon" title="Première page">«</a>'
+        : '<span class="pagination__btn pagination__btn--icon pagination__btn--disabled">«</span>';
 
-    $h .= $page > 1
-        ? '<a href="' . htmlspecialchars($urlFn($page - 1)) . '" class="pagination__btn">← Précédent</a>'
-        : '<span class="pagination__btn pagination__btn--disabled">← Précédent</span>';
+    $prev = $page > 1
+        ? '<a href="' . htmlspecialchars($urlFn($page - 1)) . '" class="pagination__btn"><span class="pagination__btn-icon">‹</span> Précédente</a>'
+        : '<span class="pagination__btn pagination__btn--disabled"><span class="pagination__btn-icon">‹</span> Précédente</span>';
 
-    $h .= '<div class="pagination__pages">';
+    $next = $page < $totalPages
+        ? '<a href="' . htmlspecialchars($urlFn($page + 1)) . '" class="pagination__btn">Suivante <span class="pagination__btn-icon">›</span></a>'
+        : '<span class="pagination__btn pagination__btn--disabled">Suivante <span class="pagination__btn-icon">›</span></span>';
+
+    $lastBtn = $page < $totalPages
+        ? '<a href="' . htmlspecialchars($urlFn($totalPages)) . '" class="pagination__btn pagination__btn--icon" title="Dernière page">»</a>'
+        : '<span class="pagination__btn pagination__btn--icon pagination__btn--disabled">»</span>';
+
+    $pages = '<div class="pagination__pages">';
 
     $start = max(1, $page - 2);
     $end   = min($totalPages, $page + 2);
 
-    if ($start > 1) $h .= '<a href="' . htmlspecialchars($urlFn(1)) . '" class="pagination__page">1</a>';
-    if ($start > 2) $h .= '<span class="pagination__ellipsis">…</span>';
+    if ($start > 1) $pages .= '<a href="' . htmlspecialchars($urlFn(1)) . '" class="pagination__page">1</a>';
+    if ($start > 2) $pages .= '<span class="pagination__ellipsis">…</span>';
 
     for ($i = $start; $i <= $end; $i++) {
-        $cls = 'pagination__page' . ($i === $page ? ' is-active' : '');
-        $h  .= '<a href="' . htmlspecialchars($urlFn($i)) . '" class="' . $cls . '">' . $i . '</a>';
+        $cls    = 'pagination__page' . ($i === $page ? ' is-active' : '');
+        $pages .= '<a href="' . htmlspecialchars($urlFn($i)) . '" class="' . $cls . '">' . $i . '</a>';
     }
 
-    if ($end < $totalPages - 1) $h .= '<span class="pagination__ellipsis">…</span>';
-    if ($end < $totalPages)     $h .= '<a href="' . htmlspecialchars($urlFn($totalPages)) . '" class="pagination__page">' . $totalPages . '</a>';
+    if ($end < $totalPages - 1) $pages .= '<span class="pagination__ellipsis">…</span>';
+    if ($end < $totalPages)     $pages .= '<a href="' . htmlspecialchars($urlFn($totalPages)) . '" class="pagination__page">' . $totalPages . '</a>';
 
-    $h .= '</div>';
+    $pages .= '</div>';
 
-    $h .= $page < $totalPages
-        ? '<a href="' . htmlspecialchars($urlFn($page + 1)) . '" class="pagination__btn">Suivant →</a>'
-        : '<span class="pagination__btn pagination__btn--disabled">Suivant →</span>';
-
-    $h .= '</div>';
-    return $h;
+    return '<div class="pagination">'
+        . '<div class="pagination__nav pagination__nav--left">' . $firstBtn . $prev . '</div>'
+        . $pages
+        . '<div class="pagination__nav pagination__nav--right">' . $next . $lastBtn . '</div>'
+        . '</div>';
 }

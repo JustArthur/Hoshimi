@@ -9,9 +9,9 @@
 declare(strict_types=1);
 
 $allowedRoots = [
-    $_ENV['ANIMES_PATH']  ?? '/media/animes',
-    $_ENV['FILMS_PATH']   ?? '/media/films',
-    $_ENV['SERIES_PATH']  ?? '/media/series',
+    $_ENV['ANIMES_PATH'] ?? '/media/animes',
+    $_ENV['FILMS_PATH']  ?? '/media/films',
+    $_ENV['SERIES_PATH'] ?? '/media/series',
 ];
 
 $requestedPath = urldecode($_GET['path'] ?? '');

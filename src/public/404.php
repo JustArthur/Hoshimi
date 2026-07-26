@@ -12,6 +12,7 @@ $current_path = '';
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Page introuvable — Hoshimi</title>
     <link rel="stylesheet" href="/css/hoshimi.css">
+    <script src="/js/storage.js"></script>
 </head>
 <body>
     <?php include __DIR__ . '/components/navbar.php'; ?>

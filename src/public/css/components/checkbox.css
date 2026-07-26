@@ -1,0 +1,79 @@
+/* ── Checkbox custom Hoshimi ─────────────────────────────────────────────────
+   Usage :
+   <label class="hoshi-checkbox-label">
+     <span class="hoshi-checkbox">
+       <input type="checkbox">
+       <span class="hoshi-checkbox__box"></span>
+     </span>
+     Libellé
+   </label>
+*/
+
+.hoshi-checkbox-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 0.82rem;
+    color: var(--color-text-muted);
+    transition: color var(--transition-fast);
+    user-select: none;
+}
+
+.hoshi-checkbox-label:hover {
+    color: var(--color-text);
+}
+
+.hoshi-checkbox {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.hoshi-checkbox input[type="checkbox"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+}
+
+.hoshi-checkbox__box {
+    width: 16px;
+    height: 16px;
+    border-radius: var(--radius-sm);
+    border: 1.5px solid var(--color-border);
+    background: var(--color-surface);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition:
+        border-color var(--transition-fast),
+        background var(--transition-fast),
+        box-shadow var(--transition-fast);
+}
+
+.hoshi-checkbox__box::after {
+    content: '';
+    width: 4px;
+    height: 7px;
+    border-right: 1.5px solid transparent;
+    border-bottom: 1.5px solid transparent;
+    transform: rotate(45deg) translate(-1px, -1px);
+    transition: border-color var(--transition-fast);
+}
+
+.hoshi-checkbox input[type="checkbox"]:checked~.hoshi-checkbox__box {
+    background: var(--color-accent);
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px var(--color-accent-dim);
+}
+
+.hoshi-checkbox input[type="checkbox"]:checked~.hoshi-checkbox__box::after {
+    border-color: #1a1a1a;
+}
+
+.hoshi-checkbox-label:hover .hoshi-checkbox__box {
+    border-color: var(--color-accent);
+}

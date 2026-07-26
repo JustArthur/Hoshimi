@@ -6,7 +6,7 @@
     display: inline-flex;
     align-items: center;
     padding: 3px 11px;
-    border-radius: var(--radius-pill);
+    border-radius: var(--radius-sm);
     font-size: 0.72rem;
     font-weight: 600;
     background: var(--color-bg-elevated);
@@ -18,9 +18,11 @@
     transition: border-color var(--transition-fast), color var(--transition-fast);
 }
 
-a.badge { cursor: pointer; }
+a.badge {
+    cursor: pointer;
+}
 
-.badge:hover {
+.badge:not(.badge--score-hero):not(.badge--trending):not(.badge--type):not(.badge--soon):hover {
     border-color: rgba(255, 255, 255, 0.2);
     color: var(--color-text);
 }
@@ -57,6 +59,18 @@ a.badge { cursor: pointer; }
     border-color: rgba(14, 165, 233, 0.3);
 }
 
+.badge--multi {
+    background: rgba(139, 92, 246, 0.15);
+    color: #c4b5fd;
+    border-color: rgba(139, 92, 246, 0.3);
+}
+
+.badge--vo {
+    background: rgba(156, 163, 175, 0.1);
+    color: #9ca3af;
+    border-color: rgba(156, 163, 175, 0.2);
+}
+
 /* ── Tendance & score ────────────────────────────────────────────────────── */
 
 .badge--trending {
@@ -85,6 +99,33 @@ a.badge { cursor: pointer; }
     letter-spacing: 0.03em;
 }
 
+/* Score dans le hero (étoile jaune) */
+.badge--score-hero {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(0, 0, 0, 0.55);
+    border: 1px solid rgba(245, 197, 24, 0.35);
+    color: #f5c518;
+    backdrop-filter: blur(6px);
+    letter-spacing: 0.03em;
+}
+
+/* Type (Film / Anime / Série) */
+.badge--type {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    color: rgba(255, 255, 255, 0.75);
+    backdrop-filter: blur(6px);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    font-size: 0.68rem;
+    font-weight: 600;
+}
+
 /* ── À venir (hero & card) ───────────────────────────────────────────────── */
 
 .badge--soon {
@@ -101,6 +142,26 @@ a.badge { cursor: pointer; }
     background: color-mix(in srgb, var(--hero-accent, var(--color-accent)) 35%, transparent);
     border-color: var(--hero-accent, var(--color-accent));
     color: var(--color-accent);
+}
+
+/* ── Qualité vidéo (720p, 1080p, 4K…) ───────────────────────────────────── */
+
+.badge--quality {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--color-text);
+    border-color: rgba(255, 255, 255, 0.15);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+}
+
+/* ── Extension fichier (MKV, MP4…) ──────────────────────────────────────── */
+
+.badge--ext {
+    background: transparent;
+    color: var(--color-text-muted);
+    border-color: rgba(255, 255, 255, 0.07);
+    font-weight: 500;
+    letter-spacing: 0.03em;
 }
 
 /* ── Statuts de diffusion ────────────────────────────────────────────────── */

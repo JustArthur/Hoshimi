@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 // ============================================================
-//  FilmScanner — Scan des films depuis D:\Films
+//  FilmScanner — Scan des films depuis Y:\Films
 //  Structure : Films/Titre/Titre.mkv  +  cover.*  +  metadata.json
 // ============================================================
 class FilmScanner
@@ -77,6 +77,14 @@ class FilmScanner
     }
 
     // ----------------------------------------------------------------
+    //  UN FILM PAR CHEMIN DIRECT
+    // ----------------------------------------------------------------
+    public function getFilmByPath(string $dir): ?array
+    {
+        return is_dir($dir) ? $this->scanFilmDir($dir) : null;
+    }
+
+    // ----------------------------------------------------------------
     //  SCAN D'UN DOSSIER FILM
     // ----------------------------------------------------------------
     private function scanFilmDir(string $dir): ?array
@@ -92,36 +100,37 @@ class FilmScanner
             return null;
         }
 
-        // Support format tmdb_fetch.py (détails imbriqués sous "details")
-        // et format plat pour la compatibilité ascendante
-        $details  = isset($metadata['details']) && is_array($metadata['details'])
-            ? $metadata['details']
-            : $metadata;
-
         $coverFile = $this->findCoverImage($dir);
 
-        // Fallback : poster TMDB remote si pas de cover locale
-        $coverUrl = null;
-        if ($coverFile) {
-            $coverUrl = '/stream-image/?path=' . urlencode($coverFile);
-        } elseif (!empty($metadata['images']['posters'][0]['urls']['original'])) {
-            $coverUrl = $metadata['images']['posters'][0]['urls']['original'];
+        // v2 format (flat) or old TMDB format (nested under "details")
+        if (($metadata['v'] ?? 0) >= 2) {
+            $title     = $metadata['title'] ?? $name;
+            $rawGenres = $metadata['genres'] ?? [];
+            $genres    = array_map(fn($g) => (string)$g, $rawGenres);
+            $coverUrl  = $coverFile
+                ? '/stream-image/?path=' . urlencode($coverFile)
+                : ($metadata['cover'] ?? null);
+            $bannerUrl = $metadata['banner'] ?? null;
+            $details   = $metadata; // for synopsis/year/score/runtime below
+        } else {
+            $details = isset($metadata['details']) && is_array($metadata['details'])
+                ? $metadata['details']
+                : $metadata;
+            $title     = $details['title'] ?? $details['name'] ?? $name;
+            $rawGenres = $details['genres'] ?? [];
+            $genres    = array_map(
+                fn($g) => is_array($g) ? ($g['name'] ?? '') : (string)$g,
+                $rawGenres
+            );
+            $coverUrl  = $coverFile
+                ? '/stream-image/?path=' . urlencode($coverFile)
+                : ($metadata['images']['posters'][0]['urls']['w500']
+                    ?? $metadata['images']['posters'][0]['urls']['original']
+                    ?? null);
+            $bannerUrl = $metadata['images']['backdrops'][0]['urls']['w1280']
+                ?? $metadata['images']['backdrops'][0]['urls']['original']
+                ?? null;
         }
-
-        // Titre : details prioritaire sur nom de dossier
-        $title = $details['title'] ?? $details['name'] ?? $name;
-
-        // Genres : [{id, name}] (TMDB) ou tableau de chaînes
-        $rawGenres = $details['genres'] ?? [];
-        $genres    = array_map(
-            fn($g) => is_array($g) ? ($g['name'] ?? '') : (string)$g,
-            $rawGenres
-        );
-
-        // Banner (backdrop TMDB) — image paysage pour le hero
-        $bannerUrl = $metadata['images']['backdrops'][0]['urls']['w1280']
-            ?? $metadata['images']['backdrops'][0]['urls']['original']
-            ?? null;
 
         $seasons = [];
         if ($hasFile) {
@@ -141,6 +150,7 @@ class FilmScanner
                             'quality'    => $fileInfo['quality'],
                             'language'   => $fileInfo['language'],
                             'stream_url' => '/stream/index.php?path=' . rawurlencode($videoFile),
+                            'added_at'   => date('Y-m-d\TH:i:s', filemtime($videoFile) ?: 0),
                         ],
                     ],
                 ],
@@ -159,12 +169,14 @@ class FilmScanner
             'year'       => $this->extractYear($details),
             'score'      => isset($details['vote_average']) && $details['vote_average'] > 0
                 ? round((float)$details['vote_average'], 1)
-                : null,
+                : (isset($details['score']) && $details['score'] > 0 ? (float)$details['score'] : null),
             'runtime'    => $details['runtime'] ?? null,
-            'format'     => 'Film',
-            'has_file'   => $hasFile,
-            'metadata'   => $metadata,
-            'seasons'    => $seasons,
+            'format'        => 'Film',
+            'has_file'        => $hasFile,
+            'main_language'   => $seasons[0]['episodes'][0]['language'] ?? null,
+            'last_episode_at' => $seasons[0]['episodes'][0]['added_at'] ?? null,
+            'metadata'        => $metadata,
+            'seasons'         => $seasons,
         ];
     }
 
@@ -233,8 +245,12 @@ class FilmScanner
             $quality = strtolower($m[1]);
         }
 
-        if (preg_match('/\b(VOSTFR|VOSTA|VOSTEN|VF|VO|MULTI|DUAL)\b/i', $name, $m)) {
-            $language = strtoupper($m[1]);
+        // Collecte tous les tags langue et garde le plus spécifique (VOSTFR > VOSTA > VO, MULTI > VF…)
+        if (preg_match_all('/\b(VOSTFR|VOSTA|VOSTEN|MULTI|DUAL|VF|VO)\b/i', $name, $ms)) {
+            $priority = ['VOSTFR' => 6, 'VOSTA' => 5, 'VOSTEN' => 4, 'MULTI' => 3, 'DUAL' => 3, 'VF' => 2, 'VO' => 1];
+            $tags = array_map('strtoupper', $ms[1]);
+            usort($tags, fn($a, $b) => ($priority[$b] ?? 0) <=> ($priority[$a] ?? 0));
+            $language = implode(' ', array_unique($tags));
         }
 
         return ['quality' => $quality, 'language' => $language];

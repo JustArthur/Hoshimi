@@ -1,0 +1,194 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   HOSHIMI — Custom Select (cs-*)
+   Composant réutilisable : dropdown stylisé avec animation et accessibilité.
+   Init via HoshimiSelect.init(wrap) ou HoshimiSelect.initAll().
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.cs-wrap {
+    position: relative;
+    display: inline-block;
+}
+
+.cs-wrap.is-open .cs-btn {
+    border-color: rgba(var(--color-accent-rgb, 200, 164, 104), .5);
+    background: rgba(var(--color-accent-rgb, 200, 164, 104), .08);
+}
+
+.cs-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 16px;
+    background: rgba(255, 255, 255, .06);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, .1);
+    border-radius: var(--radius-sm);
+    color: var(--color-text);
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    white-space: nowrap;
+    transition: border-color 0.15s, background 0.15s;
+}
+
+.cs-btn:hover {
+    background: rgba(255, 255, 255, .1);
+    border-color: rgba(255, 255, 255, .18);
+}
+
+.cs-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.cs-chevron {
+    flex-shrink: 0;
+    opacity: 0.6;
+    transition: transform 0.2s ease;
+}
+
+.cs-wrap.is-open .cs-chevron {
+    transform: rotate(180deg);
+}
+
+/* ── Dropdown ─────────────────────────────────────────────────────────────── */
+
+.cs-list {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    min-width: max(100%, 180px);
+    max-height: 260px;
+    overflow-y: auto;
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+    list-style: none;
+    padding: 6px;
+    z-index: 300;
+    opacity: 0;
+    transform: translateY(-6px);
+    pointer-events: none;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.cs-wrap.is-open .cs-list {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: all;
+}
+
+/* ── Items ────────────────────────────────────────────────────────────────── */
+
+.cs-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: calc(var(--radius-sm) - 2px);
+    cursor: pointer;
+    transition: background 0.12s;
+    color: var(--color-text-muted);
+}
+
+.cs-item:has(> .cs-item__link) {
+    padding: 0;
+    display: block;
+}
+
+.cs-item__link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    width: 100%;
+    color: inherit;
+    text-decoration: none;
+}
+
+.cs-item:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--color-text);
+}
+
+.cs-item.is-active {
+    color: var(--color-text);
+}
+
+.cs-item.is-active .cs-body a {
+    font-weight: 600;
+}
+
+.cs-check {
+    width: 16px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Cache le SVG checkmark — remplacé par un dot CSS */
+.cs-check svg { display: none; }
+
+.cs-item.is-active .cs-check::after {
+    content: '';
+    display: block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--color-accent);
+    box-shadow: 0 0 6px rgba(200, 164, 104, 0.5);
+}
+
+.cs-body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+}
+
+.cs-item-label {
+    font-size: 0.88rem;
+    font-weight: 500;
+    line-height: 1.2;
+}
+
+.cs-item-label a {
+    color: inherit;
+    text-decoration: none;
+    display: block;
+}
+
+.cs-item-count {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    line-height: 1.2;
+}
+
+/* ── Dot coloré (types médias) ────────────────────────────────────────────── */
+
+.cs-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.cs-dot--anime {
+    background: #60a5fa;
+    box-shadow: 0 0 6px rgba(96, 165, 250, 0.5);
+}
+
+.cs-dot--film {
+    background: #c8a468;
+    box-shadow: 0 0 6px rgba(200, 164, 104, 0.5);
+}
+
+.cs-dot--serie {
+    background: #a78bfa;
+    box-shadow: 0 0 6px rgba(167, 139, 250, 0.5);
+}

@@ -53,18 +53,13 @@
     background: #22c55e;
 }
 
-/* État : actif (player — épisode en cours) */
-.episode-card.is-active .episode-card__thumbnail {
-    box-shadow: inset 0 0 0 2px var(--color-accent-light);
-}
-
 /* ── Thumbnail ───────────────────────────────────────────────────────────── */
 
 .episode-card__thumbnail {
     position: relative;
     width: 100%;
     aspect-ratio: 16 / 9;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-sm);
     overflow: hidden;
     background: #0e0e0e;
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
@@ -137,7 +132,6 @@
     font-size: 3rem;
     font-weight: 900;
     color: rgba(255, 255, 255, 0.12);
-    user-select: none;
     pointer-events: none;
 }
 
@@ -155,7 +149,7 @@
     -webkit-backdrop-filter: blur(6px);
     color: #fff;
     padding: 2px 8px;
-    border-radius: var(--radius-pill);
+    border-radius: var(--radius-sm);
     font-size: 0.65rem;
     font-weight: 600;
     z-index: 3;
@@ -175,7 +169,7 @@
 
 .episode-card__progress-fill {
     height: 100%;
-    background: var(--color-accent-light);
+    background: var(--color-accent);
 }
 
 /* ── Card body ───────────────────────────────────────────────────────────── */
@@ -224,48 +218,70 @@
     flex-wrap: wrap;
 }
 
-/* Badge langue — pill coloré */
-.episode-card__lang {
+/* Badges langue dans les cards d'épisodes — taille réduite */
+.episode-card__info .badge--lang {
     font-size: 0.6rem;
-    font-weight: 600;
     padding: 2px 6px;
-    border-radius: var(--radius-pill);
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
-    background: rgba(14, 165, 233, 0.15);
-    color: #7dd3fc;
 }
 
-.episode-card__lang[data-lang="VF"] {
-    background: rgba(16, 185, 129, 0.15);
-    color: #6ee7b7;
-}
-
-.episode-card__lang[data-lang="VOSTFR"] {
-    background: rgba(14, 165, 233, 0.15);
-    color: #7dd3fc;
-}
-
-.episode-card__lang[data-lang="MULTI"] {
-    background: rgba(139, 92, 246, 0.15);
-    color: #c4b5fd;
-}
-
-.episode-card__lang[data-lang="VO"] {
-    background: rgba(156, 163, 175, 0.10);
-    color: #9ca3af;
-}
-
-/* Badge qualité */
-.episode-card__quality {
+/* (badge qualité supprimé — non utilisé) */
+.episode-card__quality--unused {
     font-size: 0.6rem;
-    font-weight: 500;
-    padding: 2px 6px;
-    border-radius: var(--radius-pill);
-    background: rgba(255, 255, 255, 0.07);
-    color: rgba(255, 255, 255, 0.35);
     text-transform: uppercase;
     margin-left: auto;
+}
+
+/* ── Épisode à venir (futur TMDB) ────────────────────────────────────────── */
+
+.episode-card--upcoming {
+    cursor: default;
+    pointer-events: none;
+}
+
+.episode-card--upcoming .episode-card__thumbnail {
+    background: linear-gradient(135deg, #0d0d0d 0%, #161616 100%);
+}
+
+.episode-card__still-blur {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    filter: blur(6px) brightness(0.4);
+    transform: scale(1.05);
+}
+
+.episode-card__upcoming-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    z-index: 2;
+}
+
+.episode-card__upcoming-num {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.45);
+    letter-spacing: -0.02em;
+}
+
+.episode-card__upcoming-soon {
+    font-size: 0.65rem;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.28);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.episode-card__airdate {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--color-accent);
 }
 
 /* ── Responsive ──────────────────────────────────────────────────────────── */

@@ -1,15 +1,11 @@
 #!/usr/bin/env php
 <?php
 // ============================================================
-//  HOSHIMI — Générateur Maître (Miniatures, Durées, Tailles)
-//  Supporte : animes, séries, films
+//  HOSHIMI — Générateur de miniatures
 //
 //  Usage :
-//    php generate-thumbnails.php                    # tout (défaut)
-//    php generate-thumbnails.php --type anime       # animes seulement
-//    php generate-thumbnails.php --type serie       # séries seulement
-//    php generate-thumbnails.php --type film        # films seulement
-//    php generate-thumbnails.php --slug "Dandadan"  # titre précis
+//    php generate-thumbnails.php                    # tout
+//    php generate-thumbnails.php --slug "Titre"     # titre précis
 //    php generate-thumbnails.php --force            # tout régénérer
 // ============================================================
 
@@ -27,36 +23,16 @@ if (file_exists(__DIR__ . '/../../.env')) {
 
 require_once __DIR__ . '/../app/Services/AnimeScanner.php';
 require_once __DIR__ . '/../app/Services/SeriesScanner.php';
-require_once __DIR__ . '/../app/Services/FilmScanner.php';
 
 // ─── 2. Arguments CLI ────────────────────────────────────────────────────────
-$opts      = getopt('', ['force', 'type:', 'slug:', 'anime:', 'at:']);
+$opts      = getopt('', ['force', 'slug:', 'at:']);
 $force     = isset($opts['force']);
-$type      = strtolower($opts['type'] ?? 'all');         // défaut = tout
-$onlySlug  = $opts['slug'] ?? $opts['anime'] ?? null;
+$onlySlug  = $opts['slug'] ?? null;
 $captureAt = max(5, min(90, (int)($opts['at'] ?? 30)));
 
-// ─── 3. Résolution des chemins (hôte vs Docker) ──────────────────────────────
-// Si le chemin Docker n'existe pas on bascule sur le chemin hôte du .env
-function resolvePath(string $containerEnvKey, string $hostEnvKey, string $fallback): string
-{
-    $containerPath = $_ENV[$containerEnvKey] ?? $fallback;
-    if (is_dir($containerPath)) return rtrim($containerPath, '/\\');
-
-    $hostPath = $_ENV[$hostEnvKey] ?? '';
-    if ($hostPath !== '' && is_dir($hostPath)) return rtrim($hostPath, '/\\');
-
-    return $containerPath; // sera invalide → getAllX() retournera []
-}
-
-$animesPath = resolvePath('ANIMES_PATH', 'ANIMES_HOST_PATH', '/media/animes');
-$filmsPath  = resolvePath('FILMS_PATH',  'FILMS_HOST_PATH',  '/media/films');
-$seriesPath = resolvePath('SERIES_PATH', 'SERIES_HOST_PATH', '/media/series');
-
-// Injecte les chemins résolus pour que les Scanners les utilisent
-$_ENV['ANIMES_PATH']  = $animesPath;
-$_ENV['FILMS_PATH']   = $filmsPath;
-$_ENV['SERIES_PATH']  = $seriesPath;
+// ─── 3. Résolution des chemins ────────────────────────────────────────────────
+$animesPath = rtrim($_ENV['ANIMES_PATH'] ?? '/media/animes', '/\\');
+$seriesPath = rtrim($_ENV['SERIES_PATH'] ?? '/media/series', '/\\');
 
 // Dossier miniatures : relatif au script si le chemin Docker n'existe pas
 $imagesPath = $_ENV['IMAGES_PATH'] ?? '/var/www/html/public/images';
@@ -84,37 +60,27 @@ $index     = file_exists($indexFile)    ? (json_decode(file_get_contents($indexF
 $durations = file_exists($durationFile) ? (json_decode(file_get_contents($durationFile), true) ?: []) : [];
 $sizes     = file_exists($sizeFile)     ? (json_decode(file_get_contents($sizeFile),     true) ?: []) : [];
 
-echo "🎌 Hoshimi — Génération des miniatures\n\n";
+echo "🌸 Hoshimi — Génération des miniatures\n\n";
 
-// ─── 6. Construction des groupes ─────────────────────────────────────────────
+// ─── 6. Construction des groupes ──────────────────────────────────────────────
 $mediaGroups = [];
 
-$wantsAnime = in_array($type, ['anime', 'all'], true);
-$wantsSerie = in_array($type, ['serie', 'all'], true);
-$wantsFilm  = in_array($type, ['film',  'all'], true);
-
-if ($wantsAnime) {
+if (is_dir($animesPath)) {
     $scanner = new AnimeScanner($animesPath);
     $items   = $onlySlug
         ? array_filter([$scanner->getAnimeBySlug($onlySlug)])
         : $scanner->getAllAnimes();
-    $mediaGroups[] = ['label' => 'Animes', 'path' => $animesPath, 'items' => array_values($items)];
+    if (!empty($items))
+        $mediaGroups[] = ['label' => 'Animes', 'path' => $animesPath, 'items' => array_values($items)];
 }
 
-if ($wantsSerie) {
+if (is_dir($seriesPath)) {
     $scanner = new SeriesScanner();
     $items   = $onlySlug
-        ? array_filter([$scanner->getSerieBySlug($onlySlug)])
-        : $scanner->getAllSeries();
-    $mediaGroups[] = ['label' => 'Séries', 'path' => $seriesPath, 'items' => array_values($items)];
-}
-
-if ($wantsFilm) {
-    $scanner = new FilmScanner();
-    $items   = $onlySlug
-        ? array_filter([$scanner->getFilmBySlug($onlySlug)])
-        : $scanner->getAllFilms();
-    $mediaGroups[] = ['label' => 'Films', 'path' => $filmsPath, 'items' => array_values($items)];
+        ? array_filter([$scanner->getAnimeBySlug($onlySlug)])
+        : $scanner->getAllAnimes();
+    if (!empty($items))
+        $mediaGroups[] = ['label' => 'Séries', 'path' => $seriesPath, 'items' => array_values($items)];
 }
 
 // ─── 7. Traitement ───────────────────────────────────────────────────────────

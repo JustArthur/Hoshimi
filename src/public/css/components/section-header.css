@@ -1,96 +1,95 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   HOSHIMI — Section header (detail.css version comme référence)
+   HOSHIMI — Section header
+   Style : barre accent verticale + eyebrow type + titre + ligne séparateur
    ══════════════════════════════════════════════════════════════════════════ */
 
 .section-header {
     display: flex;
-    align-items: baseline;
-    gap: 12px;
+    align-items: center;
+    gap: 0;
     margin-bottom: 20px;
+}
+
+/* ── Barre accent verticale ───────────────────────────────────────────────── */
+
+.section-header__bar {
+    width: 3px;
+    align-self: stretch;
+    background: var(--color-accent);
+    border-radius: 2px;
+    margin-right: 12px;
+    flex-shrink: 0;
+    min-height: 32px;
+}
+
+/* ── Bloc texte : eyebrow + titre ─────────────────────────────────────────── */
+
+.section-header__inner {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    flex-shrink: 0;
+}
+
+/* Eyebrow : label type (Anime / Série / Film) */
+.section-header__type {
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-accent);
+    line-height: 1.2;
 }
 
 .section-header__title {
     font-size: 1rem;
     font-weight: 700;
-    letter-spacing: 0.03em;
+    letter-spacing: 0.02em;
     text-transform: uppercase;
     color: var(--color-text);
+    line-height: 1.2;
 }
 
-/* Barre accent verticale avant le titre */
-.section-header__title::before {
-    content: '';
-    display: inline-block;
-    width: 3px;
-    height: 1em;
-    background: var(--color-accent);
-    border-radius: 2px;
-    margin-right: 10px;
-    vertical-align: middle;
+/* ── Ligne séparateur (style 06) ──────────────────────────────────────────── */
+
+.section-header__line {
+    flex: 1;
+    height: 1px;
+    background: var(--color-border);
+    margin: 0 16px;
 }
 
-/* Compteur (ex. "12 épisodes") */
-.section-header__count {
-    font-size: 0.75rem;
-    color: var(--color-text-muted);
-    background: var(--color-bg-elevated);
-    padding: 1px 8px;
-    border-radius: var(--radius-pill);
-    border: 1px solid var(--color-border);
-}
+/* ── Lien "Voir tout" aligné à droite ─────────────────────────────────────── */
 
-/* Type badge coloré */
-.section-header__type {
-    display: inline-block;
-    font-size: 0.65rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    padding: 2px 8px;
-    border-radius: var(--radius-sm);
-    background: rgba(var(--color-accent-rgb), 0.12);
-    color: var(--color-accent);
-    border: 1px solid rgba(var(--color-accent-rgb), 0.2);
-    vertical-align: middle;
-    margin-left: 8px;
-    line-height: 1.6;
-}
-
-/* Lien "Voir tout" aligné à droite */
 .section-header__link {
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     color: var(--color-accent);
-    margin-left: auto;
-    opacity: 0.8;
+    opacity: 0.7;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
     transition: opacity var(--transition-fast);
 }
 
-.section-header__link:hover { opacity: 1; }
-
-/* Sous-titre */
-.section-header__sub {
-    font-size: 0.88rem;
-    color: var(--color-text-muted);
-    margin-top: 4px;
+.section-header__link:hover {
+    opacity: 1;
 }
 
-/* Variante "episodes" : moins de marge basse */
-.section-header--episodes { margin-bottom: 16px; }
+/* ── Sans type ni lien (ex: "Reprendre la lecture", "Favoris") ────────────── */
+
+.section-header--simple .section-header__bar {
+    min-height: 20px;
+}
 
 /* ── Mobile ──────────────────────────────────────────────────────────────── */
 
 @media (max-width: 768px) {
-    .section-header {
-        flex-wrap: wrap;
-        gap: 4px 12px;
-        align-items: center;
+    .section-header__title {
+        font-size: 0.95rem;
     }
 
-    .section-header__title { font-size: 1.1rem; }
-
-    .section-header__sub {
-        flex-basis: 100%;
-        font-size: 0.8rem;
-        margin-top: 2px;
+    .section-header__line {
+        margin: 0 10px;
     }
 }

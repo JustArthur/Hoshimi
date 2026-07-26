@@ -1,7 +1,6 @@
 # ============================================================
 #  HOSHIMI (星見) — Docker Compose
 #  Services : Nginx + PHP-FPM
-#  Médias : Animes uniquement (Y:\Animes)
 # ============================================================
 
 services:
@@ -19,16 +18,17 @@ services:
       - animes_data:/media/animes
       - films_data:/media/films
       - series_data:/media/series
-      - ./src/public/images:/var/www/html/public/images
+      - hoshimi_data:/var/www/html/data
+      - hoshimi_images:/var/www/html/public/images
     networks:
       - hoshimi_net
 
-  # --- Cron — génération automatique des thumbnails ---
-  thumbnail-cron:
+  # --- Cron — scan quotidien (nouveaux fichiers) ---
+  cron-scan:
     build:
       context: ./docker/php
       dockerfile: Dockerfile
-    container_name: hoshimi_cron
+    container_name: hoshimi_cron_scan
     user: "1000:1000"
     restart: unless-stopped
     volumes:
@@ -37,22 +37,119 @@ services:
       - animes_data:/media/animes
       - films_data:/media/films
       - series_data:/media/series
-      - ./src/public/images:/var/www/html/public/images
+      - hoshimi_data:/var/www/html/data
+      - hoshimi_images:/var/www/html/public/images
     environment:
       - ANIMES_PATH=${ANIMES_PATH}
       - FILMS_PATH=${FILMS_PATH}
       - SERIES_PATH=${SERIES_PATH}
       - IMAGES_PATH=${IMAGES_PATH}
+      - TMDB_API_KEY=${TMDB_API_KEY}
     command: >
       sh -c "
-        php /var/www/html/cli/generate-thumbnails.php &&
-        while true; do
-          sleep 3600 &&
-          php /var/www/html/cli/generate-thumbnails.php;
-        done
+        run_scan() {
+          echo \"[\$\$(date '+%Y-%m-%d %H:%M:%S')] === Scan quotidien ===\";
+          python3 /var/www/html/cli/fetch_metadata.py --type anime  --scan \"\${ANIMES_PATH}\" || true;
+          python3 /var/www/html/cli/fetch_metadata.py --type film   --scan \"\${FILMS_PATH}\"  || true;
+          python3 /var/www/html/cli/fetch_metadata.py --type serie  --scan \"\${SERIES_PATH}\" || true;
+          echo \"[\$\$(date '+%Y-%m-%d %H:%M:%S')] === Scan terminé — régénération index ===\";
+          php /var/www/html/cli/regen-index.php || true;
+        };
+        run_scan;
+        while true; do sleep 3600 && run_scan; done
       "
     networks:
       - hoshimi_net
+
+  # --- Watcher — polling 30s sur les dossiers média ---
+  watcher:
+    build:
+      context: ./docker/php
+      dockerfile: Dockerfile
+    container_name: hoshimi_watcher
+    user: "1000:1000"
+    restart: unless-stopped
+    volumes:
+      - ./src:/var/www/html
+      - ./docker/php/php.ini:/usr/local/etc/php/conf.d/custom.ini:ro
+      - ./docker/watcher.sh:/watcher.sh:ro
+      - animes_data:/media/animes
+      - films_data:/media/films
+      - series_data:/media/series
+    environment:
+      - ANIMES_PATH=${ANIMES_PATH}
+      - FILMS_PATH=${FILMS_PATH}
+      - SERIES_PATH=${SERIES_PATH}
+    command: sh /watcher.sh
+    networks:
+      - hoshimi_net
+
+  # --- Cron — scan hebdomadaire des épisodes (animes/séries) ---
+  cron-episodes:
+    build:
+      context: ./docker/php
+      dockerfile: Dockerfile
+    container_name: hoshimi_cron_episodes
+    user: "1000:1000"
+    restart: unless-stopped
+    volumes:
+      - ./src:/var/www/html
+      - ./docker/php/php.ini:/usr/local/etc/php/conf.d/custom.ini:ro
+      - animes_data:/media/animes
+      - series_data:/media/series
+    environment:
+      - ANIMES_PATH=${ANIMES_PATH}
+      - SERIES_PATH=${SERIES_PATH}
+      - TMDB_API_KEY=${TMDB_API_KEY}
+    command: >
+      sh -c "
+        run_episodes() {
+          echo \"[\$\$(date '+%Y-%m-%d %H:%M:%S')] === Scan épisodes hebdo ===\";
+          python3 /var/www/html/cli/fetch_metadata.py --type anime  --seasons \"\${ANIMES_PATH}\" || true;
+          python3 /var/www/html/cli/fetch_metadata.py --type serie  --seasons \"\${SERIES_PATH}\" || true;
+          echo \"[\$\$(date '+%Y-%m-%d %H:%M:%S')] === Scan épisodes terminé ===\";
+        };
+        run_episodes;
+        while true; do sleep 604800 && run_episodes; done
+      "
+    networks:
+      - hoshimi_net
+
+  # --- Cron — scan mensuel des scores ---
+  cron-scores:
+    build:
+      context: ./docker/php
+      dockerfile: Dockerfile
+    container_name: hoshimi_cron_scores
+    user: "1000:1000"
+    restart: unless-stopped
+    volumes:
+      - ./src:/var/www/html
+      - ./docker/php/php.ini:/usr/local/etc/php/conf.d/custom.ini:ro
+      - animes_data:/media/animes
+      - films_data:/media/films
+      - series_data:/media/series
+    environment:
+      - ANIMES_PATH=${ANIMES_PATH}
+      - FILMS_PATH=${FILMS_PATH}
+      - SERIES_PATH=${SERIES_PATH}
+      - TMDB_API_KEY=${TMDB_API_KEY}
+    command: >
+      sh -c "
+        run_scores() {
+          echo \"[\$\$(date '+%Y-%m-%d %H:%M:%S')] === Mise à jour scores mensuelle ===\";
+          python3 /var/www/html/cli/fetch_metadata.py --type anime  --update \"\${ANIMES_PATH}\" || true;
+          python3 /var/www/html/cli/fetch_metadata.py --type film   --update \"\${FILMS_PATH}\"  || true;
+          python3 /var/www/html/cli/fetch_metadata.py --type serie  --update \"\${SERIES_PATH}\" || true;
+          echo \"[\$\$(date '+%Y-%m-%d %H:%M:%S')] === Scores terminés ===\";
+        };
+        run_scores;
+        while true; do sleep 2592000 && run_scores; done
+      "
+    networks:
+      - hoshimi_net
+
+  # cron-thumbnails désactivé — génération manuelle via l'admin (/admin/thumbnails)
 
   # --- PHP-FPM ---
   php:
@@ -68,7 +165,8 @@ services:
       - animes_data:/media/animes
       - films_data:/media/films
       - series_data:/media/series
-      - ./src/public/images:/var/www/html/public/images
+      - hoshimi_data:/var/www/html/data
+      - hoshimi_images:/var/www/html/public/images
     environment:
       - APP_ENV=${APP_ENV}
       - APP_DEBUG=${APP_DEBUG}
@@ -78,6 +176,9 @@ services:
       - FILMS_PATH=${FILMS_PATH}
       - SERIES_PATH=${SERIES_PATH}
       - IMAGES_PATH=${IMAGES_PATH}
+      - ACCESS_TOKEN=${ACCESS_TOKEN}
+      - TMDB_API_KEY=${TMDB_API_KEY}
+      - LAN_HOST=${LAN_HOST}
     networks:
       - hoshimi_net
 
@@ -94,7 +195,7 @@ volumes:
       o: bind
       device: "Y:\\Animes"
 
-  # D:\Films → /media/films dans le container
+  # Y:\Films → /media/films dans le container
   films_data:
     driver: local
     driver_opts:
@@ -102,13 +203,19 @@ volumes:
       o: bind
       device: "Y:\\Films"
 
-  # D:\Series → /media/series dans le container
+  # Y:\Series → /media/series dans le container
   series_data:
     driver: local
     driver_opts:
       type: none
       o: bind
       device: "Y:\\Series"
+
+  # Données persistantes (index JSON, wishboard) — géré par Docker, hors projet
+  hoshimi_data:
+
+  # Images générées (thumbnails, covers) — géré par Docker, hors projet
+  hoshimi_images:
 
 # ============================================================
 #  RÉSEAU

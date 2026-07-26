@@ -8,21 +8,84 @@
     display: grid;
     grid-template-columns: 240px 1fr;
     gap: 28px;
-    align-items: start;
+    align-items: stretch;
+}
+
+/* ── Header catalogue + recherche ────────────────────────────────────────── */
+
+.catalog-main__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.catalog-search {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+    width: 100%;
+}
+
+.catalog-search__input {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: 7px 14px;
+    font-size: 0.82rem;
+    color: var(--color-text);
+    outline: none;
+    width: 100%;
+    transition: border-color var(--transition-fast), width var(--transition-base);
+    font-family: inherit;
+}
+
+.catalog-search__input::placeholder {
+    color: var(--color-text-muted);
+}
+
+.catalog-search__input:focus {
+    border-color: var(--color-accent);
+}
+
+.catalog-search__clear {
+    font-size: 0.72rem;
+    color: var(--color-text-muted);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: color var(--transition-fast), border-color var(--transition-fast);
+    flex-shrink: 0;
+    text-decoration: none;
+}
+
+.catalog-search__clear:hover {
+    color: var(--color-text);
+    border-color: var(--color-text-muted);
 }
 
 /* ── Sidebar panel ───────────────────────────────────────────────────────── */
 
 .catalog-sidebar {
     position: sticky;
-    top: calc(var(--nav-height, 60px) + 16px);
-    max-height: calc(100vh - var(--nav-height, 60px) - 60px);
+    top: calc(var(--nav-height, 60px) + var(--controls-bar-height, 0px) + 16px);
+    max-height: calc(100vh - var(--nav-height, 60px) - var(--controls-bar-height, 0px) - 32px);
     overflow-y: auto;
     scrollbar-width: thin;
     scrollbar-color: var(--color-border) transparent;
     background: var(--color-bg-elevated);
     border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-sm);
 }
 
 /* ── Header ──────────────────────────────────────────────────────────────── */
@@ -186,7 +249,6 @@
     font-size: 0.85rem;
     font-family: inherit;
     cursor: pointer;
-    margin-bottom: 16px;
     transition: border-color var(--transition-fast), color var(--transition-fast);
 }
 

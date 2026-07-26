@@ -38,7 +38,7 @@ class AnimeScanner
 
         if (file_exists($cacheFile) && (time() - filemtime($cacheFile)) < $cacheTTL) {
             $cached = json_decode((string) file_get_contents($cacheFile), true);
-            if (is_array($cached)) {
+            if (is_array($cached) && !empty($cached)) {
                 static::$cache = $cached;
                 return static::$cache;
             }
@@ -90,47 +90,48 @@ class AnimeScanner
     }
 
     // ----------------------------------------------------------------
+    //  UN ANIME PAR CHEMIN DIRECT (évite le scan de tous les dossiers)
+    // ----------------------------------------------------------------
+    public function getAnimeByPath(string $dir): ?array
+    {
+        return is_dir($dir) ? $this->scanAnimeDir($dir) : null;
+    }
+
+    // ----------------------------------------------------------------
     //  SCAN D'UN DOSSIER ANIME
     // ----------------------------------------------------------------
     private function scanAnimeDir(string $dir): ?array
     {
-        $name = basename($dir);
-
-        // --- JSON AniList (nom-anime-metadata.json) ---
+        $name     = basename($dir);
         $metadata = $this->findMetadataJson($dir);
+        $seasons  = $this->scanSeasons($dir);
 
-        // --- Cover image (premier jpg/png/webp trouvé à la racine) ---
+        if (empty($metadata) && empty($seasons)) {
+            return null;
+        }
+
+        $fields    = $this->resolveMetaFields($metadata, $name);
         $coverFile = $this->findCoverImage($dir);
         $coverUrl  = $coverFile
             ? '/stream-image/?path=' . urlencode($coverFile)
-            : null;
+            : ($fields['cover_url'] ?? null);
 
-        // --- Saisons et épisodes ---
-        $seasons = $this->scanSeasons($dir);
-
-        // Titre : priorité JSON > nom du dossier
-        $title         = $metadata['title']['french']
-            ?? $metadata['title']['romaji']
-            ?? $metadata['title']['english']
-            ?? $name;;
-
-        // Extraction de la langue principale (depuis le premier épisode de la première saison)
         $mainLanguage = null;
         if (!empty($seasons) && !empty($seasons[0]['episodes'])) {
             $mainLanguage = $seasons[0]['episodes'][0]['language'] ?? 'VOSTFR';
         }
 
-        // ── Trending score (utilisé par getAllAnimes pour le classement) ─────────
-        $popularity   = (int) ($metadata['popularity']   ?? 0);
-        $averageScore = (int) ($metadata['averageScore'] ?? 0);
-        $status       = strtoupper($metadata['status']   ?? '');
+        // ── Trending score ──────────────────────────────────────────────────
+        $popularity   = $fields['popularity'];
+        $scoreRaw     = $fields['score_raw'];
+        $status       = strtoupper($fields['status']);
 
         $popNorm      = min($popularity / 500000.0, 1.0) * 50;
-        $scoreNorm    = ($averageScore / 100.0) * 10;
+        $scoreNorm    = ($scoreRaw / 100.0) * 10;
         $statusBonus  = match ($status) {
-            'RELEASING'        => 30,
-            'NOT_YET_RELEASED' => 10,
-            default            => 0,
+            'RELEASING', 'RETURNING SERIES' => 30,
+            'NOT_YET_RELEASED', 'IN PRODUCTION', 'PLANNED' => 10,
+            default => 0,
         };
         $age          = time() - (@filemtime($dir) ?: 0);
         $recencyBonus = match (true) {
@@ -144,37 +145,153 @@ class AnimeScanner
             'slug'           => $this->dirToSlug($name),
             'dir_name'       => $name,
             'dir_path'       => $dir,
-            'title'          => $title,
-            'title_original' => $metadata['title']['native'] ?? null,
-            'title_romaji'   => $metadata['title']['romaji'] ?? $name,
-            'title_english'  => $metadata['title']['english'] ?? $name,
+            'title'          => $fields['title'],
+            'title_original' => $fields['title_original'],
+            'title_romaji'   => $fields['title_romaji'],
+            'title_english'  => $fields['title_english'],
             'cover_url'      => $coverUrl,
             'cover_path'     => $coverFile,
-            'accent_color'   => $metadata['coverImage']['color'] ?? null,
-            'banner_url'     => $metadata['bannerImage'] ?? null,
-            'synopsis'       => $metadata['description'] ?? null,
-            'genres'         => $metadata['genres'] ?? [],
-            'status'         => $metadata['status'] ?? 'UNKNOWN',
-            'episodes_total' => $metadata['episodes'] ?? null,
-            'main_language'  => $mainLanguage ?? null,
-            'score'          => $averageScore > 0 ? round($averageScore / 10, 1) : null,
-            'year'           => $metadata['seasonYear']
-                ?? $metadata['startDate']['year']
-                ?? null,
-            'format'         => $metadata['format'] ?? 'TV',
-            'studio'         => $metadata['studios']['nodes'][0]['name'] ?? null,
-            'anilist_id'     => $metadata['id'] ?? null,
-            'anidb_id'       => $metadata['idMal'] ?? null,
-            'trailer'        => $metadata['trailer'] ?? null,
-            'seasons'        => $seasons,
-            'episodes_local' => array_sum(array_map(
-                fn($s) => count($s['episodes']),
-                $seasons
-            )),
-            'relations'      => $metadata['relations']['edges'] ?? [],
+            'banner_url'     => $fields['banner_url'],
+            'synopsis'       => $fields['synopsis'],
+            'genres'         => $fields['genres'],
+            'status'         => $fields['status'],
+            'episodes_total' => $fields['episodes_total'],
+            'main_language'  => $mainLanguage,
+            'score'          => $fields['score'],
+            'year'           => $fields['year'],
+            'format'         => $fields['format'],
+            'studio'         => $fields['studio'],
+            'anilist_id'     => $fields['anilist_id'],
+            'seasons'          => $seasons,
+            'episodes_local'   => array_sum(array_map(fn($s) => count($s['episodes']), $seasons)),
+            'last_episode_at'  => (function() use ($seasons): ?string {
+                $max = null;
+                foreach ($seasons as $s) {
+                    foreach ($s['episodes'] as $ep) {
+                        if (isset($ep['added_at']) && ($max === null || $ep['added_at'] > $max)) {
+                            $max = $ep['added_at'];
+                        }
+                    }
+                }
+                return $max;
+            })(),
             'metadata'       => $metadata,
             'trending_score' => $popNorm + $scoreNorm + $statusBonus + $recencyBonus,
             'is_trending'    => false,
+        ];
+    }
+
+    // ----------------------------------------------------------------
+    //  NORMALISE LE METADATA.JSON (v2 / vieux TMDB / AniList)
+    //  Retourne un tableau unifié utilisé par scanAnimeDir
+    // ----------------------------------------------------------------
+    private function resolveMetaFields(array $metadata, string $dirName): array
+    {
+        if (empty($metadata)) {
+            return $this->_emptyMetaFields($dirName);
+        }
+
+        // ── v2 : format lean ───────────────────────────────────────────────
+        if (($metadata['v'] ?? 0) >= 2) {
+            $score = (float)($metadata['score'] ?? 0);
+            return [
+                'title'          => $metadata['title']          ?? $dirName,
+                'title_romaji'   => $metadata['title_romaji']   ?? $metadata['title'] ?? $dirName,
+                'title_original' => $metadata['title_original'] ?? null,
+                'title_english'  => $metadata['title']          ?? $dirName,
+                'synopsis'       => $metadata['overview']       ?? null,
+                'status'         => $metadata['status']         ?? 'UNKNOWN',
+                'year'           => $metadata['year']           ?? null,
+                'genres'         => $metadata['genres']         ?? [],
+                'score'          => $score > 0 ? $score : null,
+                'score_raw'      => (int)round($score * 10),
+                'popularity'     => (int)($metadata['popularity'] ?? 0),
+                'format'         => $metadata['format']         ?? 'TV',
+                'studio'         => $metadata['studio']         ?? null,
+                'cover_url'      => $metadata['cover']          ?? null,
+                'banner_url'     => $metadata['banner']         ?? null,
+                'episodes_total' => $metadata['episodes_total'] ?? null,
+                'anilist_id'     => $metadata['anilist_id']     ?? null,
+            ];
+        }
+
+        // ── Vieux format TMDB : {media_type, details, images, credits} ─────
+        if (isset($metadata['media_type'])) {
+            $d       = $metadata['details']  ?? [];
+            $images  = $metadata['images']   ?? [];
+            $title   = $d['name'] ?? $d['title'] ?? $dirName;
+            $yr      = $d['first_air_date'] ?? $d['release_date'] ?? '';
+            $year    = strlen($yr) >= 4 ? (int)substr($yr, 0, 4) : null;
+            $rawG    = $metadata['anilist_genres'] ?? $d['genres'] ?? [];
+            $genres  = array_filter(array_map(
+                fn($g) => is_array($g) ? ($g['name'] ?? '') : (string)$g, $rawG
+            ));
+            $vote    = (float)($d['vote_average'] ?? 0);
+            $score   = $vote > 0 ? round($vote, 1) : null;
+            $coverUrl = $images['posters'][0]['urls']['w500']
+                ?? $images['posters'][0]['urls']['original']
+                ?? null;
+            $bannerUrl = $images['backdrops'][0]['urls']['w1280']
+                ?? $images['backdrops'][0]['urls']['original']
+                ?? null;
+            return [
+                'title'          => $title,
+                'title_romaji'   => $title,
+                'title_original' => $d['original_name'] ?? $d['original_title'] ?? null,
+                'title_english'  => $title,
+                'synopsis'       => $d['overview'] ?? null,
+                'status'         => strtoupper($d['status'] ?? 'UNKNOWN'),
+                'year'           => $year,
+                'genres'         => array_values($genres),
+                'score'          => $score,
+                'score_raw'      => (int)round(($score ?? 0) * 10),
+                'popularity'     => (int)($d['popularity'] ?? 0),
+                'format'         => 'TV',
+                'studio'         => $d['networks'][0]['name'] ?? $d['production_companies'][0]['name'] ?? null,
+                'cover_url'      => $coverUrl,
+                'banner_url'     => $bannerUrl,
+                'episodes_total' => $d['number_of_episodes'] ?? null,
+                'anilist_id'     => null,
+            ];
+        }
+
+        // ── Vieux format AniList : {Media:{...}} ou bare {...} ─────────────
+        $al    = $metadata['Media'] ?? $metadata;
+        $t     = $al['title']       ?? [];
+        $title = $t['french'] ?? $t['romaji'] ?? $t['english'] ?? $dirName;
+        $avg   = (int)($al['averageScore'] ?? 0);
+        $score = $avg > 0 ? round($avg / 10, 1) : null;
+        $ci    = $al['coverImage'] ?? [];
+        return [
+            'title'          => $title,
+            'title_romaji'   => $t['romaji']       ?? $dirName,
+            'title_original' => $t['native']       ?? null,
+            'title_english'  => $t['english']      ?? $dirName,
+            'synopsis'       => $al['description'] ?? null,
+            'status'         => $al['status']      ?? 'UNKNOWN',
+            'year'           => $al['seasonYear']  ?? $al['startDate']['year'] ?? null,
+            'genres'         => $al['genres']      ?? [],
+            'score'          => $score,
+            'score_raw'      => $avg,
+            'popularity'     => (int)($al['popularity'] ?? 0),
+            'format'         => $al['format']      ?? 'TV',
+            'studio'         => $al['studios']['nodes'][0]['name'] ?? null,
+            'cover_url'      => $ci['extraLarge']  ?? $ci['large'] ?? null,
+            'banner_url'     => $al['bannerImage'] ?? null,
+            'episodes_total' => $al['episodes']    ?? null,
+            'anilist_id'     => $al['id']          ?? null,
+        ];
+    }
+
+    private function _emptyMetaFields(string $dirName): array
+    {
+        return [
+            'title' => $dirName, 'title_romaji' => $dirName, 'title_original' => null,
+            'title_english' => $dirName, 'synopsis' => null, 'status' => 'UNKNOWN',
+            'year' => null, 'genres' => [], 'score' => null, 'score_raw' => 0,
+            'popularity' => 0, 'format' => 'TV', 'studio' => null,
+            'cover_url' => null, 'banner_url' => null,
+            'episodes_total' => null, 'anilist_id' => null,
         ];
     }
 
@@ -201,8 +318,17 @@ class AnimeScanner
         // 1. On scanne TOUS les sous-dossiers du répertoire de l'animé
         $allSubDirs = glob($animeDir . '/*', GLOB_ONLYDIR) ?: [];
 
+        // Pré-tri : préfixe numérique ("01 First Stage") → tri par ce chiffre, sinon alphabétique
+        usort($allSubDirs, function (string $a, string $b): int {
+            $numA = preg_match('/^(\d+)[\s\-_.]/', basename($a), $mA) ? (int)$mA[1] : PHP_INT_MAX;
+            $numB = preg_match('/^(\d+)[\s\-_.]/', basename($b), $mB) ? (int)$mB[1] : PHP_INT_MAX;
+            return $numA !== $numB ? $numA <=> $numB : strcmp(basename($a), basename($b));
+        });
+
+        $customSeasonIndex = 1; // compteur pour les saisons au nom libre
+
         foreach ($allSubDirs as $sDir) {
-            $folderName = basename($sDir);
+            $folderName      = basename($sDir);
             $folderNameLower = strtolower($folderName);
 
             $targetSeason = null;
@@ -214,35 +340,34 @@ class AnimeScanner
                     'number' => (int)($entry['number'] ?? 1),
                     'label'  => $entry['label'] ?? $folderName,
                 ];
-            // Détection du type de dossier
+            // Saison numérotée standard : "Season 01", "Saison 2"
             } elseif (preg_match('/^(season|saison)\s*(\d+)/i', $folderName, $m)) {
                 $num = (int)$m[2];
-                $targetSeason = [
-                    'number' => $num,
-                    'label'  => 'Saison ' . $num
-                ];
+                $targetSeason = ['number' => $num, 'label' => 'Saison ' . $num];
+            // Saison avec préfixe numérique : "01 First Stage", "02 - Metal Fusion"
+            } elseif (preg_match('/^(\d+)[\s\-_.]+(.+)$/u', $folderName, $m)) {
+                $num   = (int)$m[1];
+                $label = trim($m[2]);
+                $targetSeason = ['number' => $num, 'label' => $label];
             } elseif (str_contains($folderNameLower, 'film') || str_contains($folderNameLower, 'movie')) {
-                $targetSeason = [
-                    'number' => 999,
-                    'label'  => 'Films'
-                ];
+                $targetSeason = ['number' => 999, 'label' => 'Films'];
             } elseif (str_contains($folderNameLower, 'oav') || str_contains($folderNameLower, 'ova')) {
-                $targetSeason = [
-                    'number' => 888,
-                    'label'  => 'OAV'
-                ];
+                $targetSeason = ['number' => 888, 'label' => 'OAV'];
             } elseif (str_contains($folderNameLower, 'special')) {
-                $targetSeason = [
-                    'number' => 777,
-                    'label'  => 'Specials'
-                ];
+                $targetSeason = ['number' => 777, 'label' => 'Specials'];
+            } else {
+                // Nom libre (ex: "First Stage", "Metal", "Fusion") → traité comme saison custom
+                $targetSeason = ['number' => $customSeasonIndex, 'label' => $folderName];
             }
 
-            // Si on a identifié un dossier spécial ou une saison, on scanne les épisodes
+            // Incrémenter le compteur custom uniquement pour les saisons "normales" (< 700)
+            if ($targetSeason && $targetSeason['number'] < 700 && $targetSeason['number'] === $customSeasonIndex) {
+                $customSeasonIndex++;
+            }
+
+            // Scanner les épisodes uniquement si le dossier est reconnu
             if ($targetSeason) {
                 $episodes = $this->scanEpisodes($sDir);
-
-                // On n'ajoute la section que si elle contient des fichiers vidéo
                 if (!empty($episodes)) {
                     $seasons[] = [
                         'number'   => $targetSeason['number'],
@@ -285,53 +410,6 @@ class AnimeScanner
         return 1;
     }
 
-    // Exemple de fonction à ajouter dans ton Scanner pour récupérer la durée
-    private function getVideoDuration(string $path): ?int
-    {
-        // On définit un fichier de cache unique dans le dossier "storage" ou "data" de ton site
-        // Assure-toi que ce dossier existe et est accessible en écriture (chmod 777)
-        $globalCacheFile = __DIR__ . '/../../storage/durations_cache.json';
-
-        // Créer le dossier storage s'il n'existe pas
-        if (!is_dir(dirname($globalCacheFile))) {
-            mkdir(dirname($globalCacheFile), 0777, true);
-        }
-
-        // Charger le cache global
-        static $globalCache = null;
-        if ($globalCache === null) {
-            if (file_exists($globalCacheFile)) {
-                $globalCache = json_decode(file_get_contents($globalCacheFile), true) ?: [];
-            } else {
-                $globalCache = [];
-            }
-        }
-
-        // On utilise le chemin complet comme clé pour éviter les doublons entre animes
-        $cacheKey = md5($path);
-
-        // 1. Si déjà en cache, on retourne
-        if (isset($globalCache[$cacheKey])) {
-            return (int)$globalCache[$cacheKey];
-        }
-
-        // 2. Sinon, on utilise FFprobe
-        $safePath = escapeshellarg($path);
-        $cmd = "ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 $safePath";
-        $output = shell_exec($cmd);
-
-        if ($output) {
-            $duration = (int)round((float)$output);
-
-            // 3. On met à jour le cache et on sauvegarde
-            $globalCache[$cacheKey] = $duration;
-            file_put_contents($globalCacheFile, json_encode($globalCache));
-
-            return $duration;
-        }
-
-        return null;
-    }
 
     // ----------------------------------------------------------------
     //  SCAN ÉPISODES DANS UN DOSSIER
@@ -360,7 +438,7 @@ class AnimeScanner
                 'quality'    => $parsed['quality'],
                 'language'   => $parsed['language'],
                 'stream_url' => '/stream/?path=' . urlencode($fullPath),
-                // 'duration'   => $this->getVideoDuration($fullPath),
+                'added_at'   => date('Y-m-d\TH:i:s', filemtime($fullPath) ?: 0),
             ];
         }
 
@@ -409,9 +487,12 @@ class AnimeScanner
             $quality = strtolower($m[1]);
         }
 
-        // 3. LANGUE (VOSTFR, VF, etc.)
-        if (preg_match('/\b(VOSTFR|VOSTA|VOSTEN|VF|VO|MULTI|DUAL)\b/i', $name, $m)) {
-            $language = strtoupper($m[1]);
+        // 3. LANGUE (VOSTFR, VF, etc.) — collecte tous les tags, garde le plus spécifique en premier
+        if (preg_match_all('/\b(VOSTFR|VOSTA|VOSTEN|MULTI|DUAL|VF|VO)\b/i', $name, $ms)) {
+            $priority = ['VOSTFR' => 6, 'VOSTA' => 5, 'VOSTEN' => 4, 'MULTI' => 3, 'DUAL' => 3, 'VF' => 2, 'VO' => 1];
+            $tags = array_map('strtoupper', $ms[1]);
+            usort($tags, fn($a, $b) => ($priority[$b] ?? 0) <=> ($priority[$a] ?? 0));
+            $language = implode(' ', array_unique($tags));
         }
 
         // 4. NETTOYAGE DU TITRE
@@ -447,109 +528,18 @@ class AnimeScanner
     }
 
     // ----------------------------------------------------------------
-    //  CHERCHE LE JSON METADATA (metadata.json)
-    //  Supporte deux formats :
-    //    - AniList (fetch-metadata.php) : {data:{Media:{...}}}
-    //    - TMDB (tmdb_fetch.py)         : {details:{...}, images:{...}, covers:{...}}
+    //  CHERCHE LE JSON METADATA (retourne le JSON brut)
+    //  La normalisation est faite par resolveMetaFields()
     // ----------------------------------------------------------------
     private function findMetadataJson(string $dir): array
     {
-        $files = glob($dir . '/metadata.json') ?: [];
-
-        if (empty($files)) {
+        $file = $dir . '/metadata.json';
+        if (!file_exists($file)) {
             return [];
         }
-
-        $content = @file_get_contents($files[0]);
-        if (!$content) {
-            return [];
-        }
-
-        // Retire le BOM UTF-8 si présent
-        $content = ltrim($content, "\xEF\xBB\xBF");
-
-        $json = json_decode($content, true);
-        if (!is_array($json)) {
-            return [];
-        }
-
-        // Format AniList
-        if (isset($json['data']['Media']) || isset($json['Media'])) {
-            return $json['data']['Media'] ?? $json['Media'];
-        }
-
-        // Format TMDB — normalise vers une structure compatible AniList
-        if (isset($json['details']) && is_array($json['details'])) {
-            return $this->normalizeTmdbMetadata($json);
-        }
-
-        return $json;
-    }
-
-    // Convertit un metadata.json TMDB en structure compatible avec scanAnimeDir
-    private function normalizeTmdbMetadata(array $tmdb): array
-    {
-        $d    = $tmdb['details'];
-        $name = $d['title'] ?? $d['name'] ?? '';
-
-        // Prefer AniList genres (granular) over TMDB genres (broad)
-        if (!empty($tmdb['anilist_genres']) && is_array($tmdb['anilist_genres'])) {
-            $genres = array_values(array_filter($tmdb['anilist_genres'], fn($g) => is_string($g) && $g !== ''));
-        } else {
-            $rawGenres = array_map(
-                fn($g) => is_array($g) ? ($g['name'] ?? '') : (string)$g,
-                $d['genres'] ?? []
-            );
-            // TMDB compound genres like "Action & Adventure" → ["Action", "Adventure"]
-            $genres = [];
-            foreach ($rawGenres as $g) {
-                foreach (array_map('trim', explode('&', $g)) as $part) {
-                    if ($part !== '') $genres[] = $part;
-                }
-            }
-            $genres = array_values(array_unique($genres));
-        }
-
-        $year = null;
-        foreach (['first_air_date', 'release_date'] as $k) {
-            if (!empty($d[$k])) {
-                $y = (int)substr($d[$k], 0, 4);
-                if ($y > 1800) {
-                    $year = $y;
-                    break;
-                }
-            }
-        }
-
-        // Banner : URL directe stockée dans covers.banner par fetch_metadata.py
-        $bannerUrl = $tmdb['covers']['banner'] ?? null;
-        // Fallback : première URL w1280 dans les backdrops
-        if (!$bannerUrl && !empty($tmdb['images']['backdrops'][0]['urls']['w1280'])) {
-            $bannerUrl = $tmdb['images']['backdrops'][0]['urls']['w1280'];
-        }
-
-        return [
-            'title'        => [
-                'french'  => $name,
-                'english' => $name,
-                'romaji'  => $name,
-                'native'  => $d['original_title'] ?? $d['original_name'] ?? null,
-            ],
-            'description'  => $d['overview'] ?? null,
-            'genres'       => $genres,
-            'averageScore' => isset($d['vote_average']) && $d['vote_average'] > 0
-                ? (int)round((float)$d['vote_average'] * 10)
-                : null,
-            'seasonYear'   => $year,
-            'startDate'    => ['year' => $year],
-            'episodes'     => $d['number_of_episodes'] ?? null,
-            'format'       => ($tmdb['media_type'] ?? 'tv') === 'movie' ? 'MOVIE' : 'TV',
-            'status'       => strtoupper($d['status'] ?? 'UNKNOWN'),
-            'bannerImage'  => $bannerUrl,
-            'images'       => $tmdb['images'] ?? [],
-            'credits'      => $tmdb['credits'] ?? [],
-            '_source'      => 'tmdb',
-        ];
+        $content = ltrim((string)@file_get_contents($file), "\xEF\xBB\xBF");
+        $json    = json_decode($content, true);
+        return is_array($json) ? $json : [];
     }
 
     // ----------------------------------------------------------------

@@ -1,0 +1,528 @@
+/* ── Favoris page ──────────────────────────────────────────────────────────── */
+
+/* ── Page hero partagé (Catalogue, Favoris, Watchlist, Historique, Wishboard) ── */
+.page-hero {
+    padding: 40px 0;
+    text-align: center;
+}
+
+.page-hero__inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.page-hero__stats {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin: 0 0 28px;
+}
+
+.page-hero__title {
+    font-family: var(--font-display);
+    font-size: 3rem;
+    font-weight: 800;
+    line-height: 1.1;
+    color: var(--color-text);
+    margin: 0 0 10px;
+}
+
+.page-hero__title::after {
+    content: '';
+    display: block;
+    margin: 6px auto 0;
+    height: 10px;
+    width: 160px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 10' preserveAspectRatio='none'%3E%3Cpath d='M2 7 C 18 3, 30 9, 48 6 C 65 3, 75 8, 92 5 C 110 2, 125 8, 142 5 C 150 4, 155 6, 158 5' stroke='%23c8a468' stroke-width='2' stroke-linecap='round' fill='none' opacity='0.85'/%3E%3Cpath d='M4 8 C 20 5, 35 8, 50 7 C 70 5, 85 9, 100 6 C 118 3, 132 8, 150 6' stroke='%23c8a468' stroke-width='0.8' stroke-linecap='round' fill='none' opacity='0.35'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-size: 100% 100%;
+}
+
+.page-hero__sub {
+    font-size: 0.9rem;
+    color: var(--color-text-muted);
+    margin: 0 0 28px;
+}
+
+.page-hero__search {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    max-width: 560px;
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: 0 18px;
+    transition: border-color 0.15s;
+}
+
+.page-hero__search:focus-within {
+    border-color: var(--color-accent);
+}
+
+.page-hero__search svg {
+    flex-shrink: 0;
+    opacity: .5;
+}
+
+.page-hero__search input {
+    flex: 1;
+    background: none;
+    border: none;
+    outline: none;
+    color: var(--color-text);
+    font-size: 0.9rem;
+    padding: 13px 0;
+}
+
+.page-hero__search input::placeholder {
+    color: var(--color-text-muted);
+}
+
+.page-hero__search-clear {
+    color: var(--color-text-muted);
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    text-decoration: none;
+    background: none;
+    border: none;
+    padding: 0;
+    line-height: 1;
+}
+
+.page-hero__search-clear:hover {
+    color: var(--color-text);
+}
+
+
+.fav-stat {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--stat-color, var(--color-text-muted));
+    background: color-mix(in srgb, var(--stat-color, var(--color-accent)) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--stat-color, var(--color-accent)) 25%, transparent);
+    padding: 5px 11px 5px 8px;
+    border-radius: 20px;
+    letter-spacing: .02em;
+    text-transform: uppercase;
+}
+
+.fav-stat svg {
+    flex-shrink: 0;
+}
+
+.fav-stat__n {
+    font-size: 0.8rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.fav-limit-counter {
+    font-size: 0.7rem;
+    font-weight: 500;
+    color: var(--color-text-muted);
+    opacity: 0.5;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+/* ── Clear button ───────────────────────────────────────────────────────────── */
+.fav-clear-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.72rem;
+    font-weight: 500;
+    color: var(--color-text-muted);
+    background: transparent;
+    border: 1px solid var(--color-border);
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: color .15s, border-color .15s, background .15s;
+}
+
+.fav-clear-btn:hover {
+    color: #f87171;
+    border-color: #f87171;
+    background: color-mix(in srgb, #f87171 8%, transparent);
+}
+
+/* ── Controls bar (sticky) ──────────────────────────────────────────────────── */
+.fav-controls-bar {
+    --controls-bar-height: 50px;
+    position: sticky;
+    top: var(--nav-height, 58px);
+    z-index: 40;
+    background: var(--color-bg);
+    border-bottom: 1px solid var(--color-border);
+    transition: box-shadow .2s;
+}
+
+.fav-controls-bar.is-sticky {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, .18);
+}
+
+.fav-controls-bar__inner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 56px;
+    flex-wrap: wrap;
+    padding: 10px var(--gutter);
+}
+
+.fav-controls-bar__right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+/* ── Type tabs ──────────────────────────────────────────────────────────────── */
+.fav-tabs {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+
+.fav-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--color-text-muted);
+    background: transparent;
+    border: 1px solid transparent;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: color .15s, background .15s, border-color .15s;
+    white-space: nowrap;
+}
+
+.fav-tab svg {
+    flex-shrink: 0;
+    opacity: .7;
+    transition: opacity .15s;
+}
+
+.fav-tab:hover {
+    color: var(--tab-color, var(--color-text));
+    background: color-mix(in srgb, var(--tab-color, var(--color-text)) 8%, transparent);
+    border-color: color-mix(in srgb, var(--tab-color, var(--color-text)) 20%, transparent);
+}
+
+.fav-tab:hover .fav-tab__badge {
+    background-color: color-mix(in srgb, var(--tab-color, var(--color-accent)) 20%, transparent);
+    color: var(--tab-color, var(--color-accent));
+}
+
+.fav-tab.is-active {
+    color: var(--tab-color, var(--color-accent));
+    background: color-mix(in srgb, var(--tab-color, var(--color-accent)) 10%, transparent);
+    border-color: color-mix(in srgb, var(--tab-color, var(--color-accent)) 30%, transparent);
+}
+
+.fav-tab.is-active svg {
+    opacity: 1;
+}
+
+.fav-tab__badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 10px;
+    background: var(--color-surface);
+    color: var(--color-text-muted);
+    line-height: 1;
+    transition: background .15s, color .15s;
+}
+
+.fav-tab.is-active .fav-tab__badge {
+    background: color-mix(in srgb, var(--tab-color, var(--color-accent)) 20%, transparent);
+    color: var(--tab-color, var(--color-accent));
+}
+
+
+/* ── Sort dropdown ──────────────────────────────────────────────────────────── */
+.fav-sort-wrap .cs-btn {
+    height: 34px;
+    padding: 0 10px;
+    font-size: 0.78rem;
+    gap: 6px;
+    white-space: nowrap;
+}
+
+/* ── Content area ───────────────────────────────────────────────────────────── */
+.fav-content {
+    padding-top: 20px;
+    padding-bottom: 60px;
+}
+
+.fav-content .grid-cards {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+@media (max-width: 1200px) {
+    .fav-content .grid-cards {
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 900px) {
+    .fav-content .grid-cards {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 760px) {
+    .fav-content .grid-cards {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 480px) {
+    .fav-content .grid-cards {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+/* ── Genre pills ────────────────────────────────────────────────────────────── */
+.fav-genres {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+}
+
+.fav-genre-btn {
+    font-size: 0.72rem;
+    font-weight: 500;
+    color: var(--color-text-muted);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    padding: 4px 12px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: color .15s, background .15s, border-color .15s;
+    white-space: nowrap;
+}
+
+.fav-genre-btn:hover {
+    color: var(--color-text);
+    border-color: var(--color-text-muted);
+}
+
+.fav-genre-btn.is-active {
+    color: var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+    border-color: var(--color-accent);
+}
+
+/* ── Card wrapper (animation + remove button) ───────────────────────────────── */
+.fav-card-wrap {
+    position: relative;
+    animation: fav-card-in .3s ease both;
+}
+
+@keyframes fav-card-in {
+    from {
+        opacity: 0;
+        transform: translateY(8px) scale(.97);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* ── Remove button ──────────────────────────────────────────────────────────── */
+.fav-remove-btn {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, .75);
+    border: 1px solid rgba(255, 255, 255, .12);
+    color: rgba(255, 255, 255, .8);
+    cursor: pointer;
+    opacity: 0;
+    transform: scale(.8);
+    transition: opacity .15s, transform .15s, background .15s, color .15s;
+    backdrop-filter: blur(4px);
+}
+
+.fav-card-wrap:hover .fav-remove-btn {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.fav-remove-btn:hover {
+    background: rgba(220, 50, 50, .9);
+    color: #fff;
+    border-color: transparent;
+}
+
+/* ── Empty state ────────────────────────────────────────────────────────────── */
+.fav-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: 80px 20px;
+    text-align: center;
+}
+
+.fav-empty__visual {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 88px;
+    height: 88px;
+    border-radius: 50%;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-muted);
+    opacity: .6;
+}
+
+.fav-empty__title {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.fav-empty__sub {
+    font-size: 0.82rem;
+    color: var(--color-text-muted);
+    max-width: 340px;
+    line-height: 1.5;
+    margin: -4px 0 4px;
+}
+
+/* ── Responsive ─────────────────────────────────────────────────────────────── */
+
+/* Cacher le label texte des selects catalogue, garder icône + chevron */
+@media (max-width: 1100px) {
+    #catalog-controls-bar .fav-sort-wrap .cs-btn>span:not(.cs-chevron) {
+        display: none;
+    }
+
+    #catalog-controls-bar .fav-sort-wrap .cs-btn {
+        gap: 6px;
+        padding: 9px 10px;
+    }
+}
+
+@media (max-width: 700px) {
+    /* Barre de contrôles : 2 lignes fixes */
+    .fav-controls-bar__inner {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0;
+        padding: 0;
+        min-height: unset;
+    }
+
+    /* Ligne 1 : tabs scrollables */
+    .fav-tabs {
+        display: flex;
+        justify-content: center;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+        gap: 2px;
+        padding: 8px var(--gutter);
+        border-bottom: 1px solid var(--color-border);
+    }
+
+    .fav-tabs::-webkit-scrollbar {
+        display: none;
+    }
+
+    .fav-tab {
+        flex-shrink: 0;
+        padding: 5px 10px;
+        font-size: 0.74rem;
+    }
+
+    /* Ligne 2 : clear + search + filtres sur une seule ligne */
+    .fav-controls-bar__right {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px var(--gutter);
+        margin-left: 0;
+        width: 100%;
+        overflow: hidden;
+    }
+
+    /* Bouton "Tout supprimer" : icône seule */
+    #hist-clear-btn,
+    #fav-clear-btn {
+        flex-shrink: 0;
+        padding: 0;
+        width: 34px;
+        height: 34px;
+        justify-content: center;
+        font-size: 0;
+        /* cache le nœud texte */
+        gap: 0;
+    }
+
+    #hist-clear-btn svg,
+    #fav-clear-btn svg {
+        flex-shrink: 0;
+    }
+
+    /* Selects : label masqué, icône + chevron seulement */
+    .fav-sort-wrap .cs-btn>span:not(.cs-chevron) {
+        display: none;
+    }
+
+    .fav-sort-wrap .cs-btn {
+        padding: 0 8px;
+        height: 34px;
+        gap: 4px;
+    }
+}
+
+@media (max-width: 480px) {
+    .fav-tab__badge {
+        font-size: 0.6rem;
+        min-width: 16px;
+        height: 16px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .fav-card-wrap {
+        animation: none;
+    }
+}

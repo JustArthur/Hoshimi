@@ -1,0 +1,117 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   HOSHIMI — Animations globales
+   ══════════════════════════════════════════════════════════════════════════ */
+
+@media (prefers-reduced-motion: no-preference) {
+
+/* ── ① Stagger cards dans les grids ─────────────────────────────────────── */
+
+@keyframes card-entrance {
+    from {
+        opacity: 0;
+        transform: translateY(12px) scale(.97);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.card--stagger {
+    animation: card-entrance .35s ease both;
+    animation-delay: calc(var(--card-i, 0) * 35ms);
+    /* Plafond à ~350ms pour les grandes grilles */
+    animation-delay: min(calc(var(--card-i, 0) * 35ms), 350ms);
+}
+
+/* ── ② Section reveal au scroll ─────────────────────────────────────────── */
+
+@keyframes reveal-up {
+    from {
+        opacity: 0;
+        transform: translateY(18px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.will-reveal {
+    opacity: 0;
+}
+
+.is-revealed {
+    animation: reveal-up .4s ease both;
+}
+
+/* Léger décalage pour les éléments enfants groupés */
+.profil-stats .profil-stat.is-revealed { animation-duration: .35s; }
+
+/* Hist-cards : stagger via nth-child */
+.hist-card.will-reveal:nth-child(2)  { transition-delay:  30ms; }
+.hist-card.will-reveal:nth-child(3)  { transition-delay:  60ms; }
+.hist-card.will-reveal:nth-child(4)  { transition-delay:  90ms; }
+.hist-card.will-reveal:nth-child(5)  { transition-delay: 120ms; }
+.hist-card.will-reveal:nth-child(6)  { transition-delay: 150ms; }
+
+.hist-card.is-revealed:nth-child(2)  { animation-delay:  30ms; }
+.hist-card.is-revealed:nth-child(3)  { animation-delay:  60ms; }
+.hist-card.is-revealed:nth-child(4)  { animation-delay:  90ms; }
+.hist-card.is-revealed:nth-child(5)  { animation-delay: 120ms; }
+.hist-card.is-revealed:nth-child(6)  { animation-delay: 150ms; }
+
+/* ── ③ Hero détail — backdrop + content + poster ─────────────────────────── */
+
+@keyframes backdrop-in {
+    from {
+        opacity: 0;
+        transform: scale(1.06);
+        filter: brightness(0) saturate(1.1);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+        filter: brightness(0.45) saturate(1.1);
+    }
+}
+
+@keyframes detail-content-in {
+    from {
+        opacity: 0;
+        transform: translateY(24px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes poster-in {
+    from {
+        opacity: 0;
+        transform: translateY(16px) scale(.96);
+        box-shadow: 0 4px 12px rgba(0,0,0,.4);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+        box-shadow: 0 16px 48px rgba(0,0,0,.75);
+    }
+}
+
+.detail-hero__backdrop--animate {
+    animation: backdrop-in .7s ease backwards;
+}
+
+.detail-hero__content--animate {
+    animation: detail-content-in .55s ease both;
+    animation-delay: .15s;
+}
+
+.detail-hero__poster-img--animate {
+    animation: poster-in .55s ease both;
+    animation-delay: .2s;
+}
+
+} /* end prefers-reduced-motion */

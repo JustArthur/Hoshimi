@@ -18,6 +18,7 @@
 /src/public/images/
 /src/public/images/
 !/src/public/images/**/.gitkeep
+/screen/*
 
 # Logs
 *.log
@@ -31,5 +32,6 @@ desktop.ini
 # IDE
 .idea/
 .vscode/
+.claude/
 *.swp
 *.swo

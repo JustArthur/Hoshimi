@@ -2,37 +2,22 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/../../app/Services/AnimeScanner.php';
-require_once '../../app/Services/ThumbnailHelper.php';
-require_once __DIR__ . '/../components/card.php';
-require_once __DIR__ . '/../components/cast.php';
-require_once __DIR__ . '/../components/tabs.php';
+require_once __DIR__ . '/../../app/IndexManager.php';
 
 $type = $_GET['type'] ?? 'anime';
 
-if ($type === 'serie') {
-    require_once __DIR__ . '/../../app/Services/SeriesScanner.php';
-    $scanner = new SeriesScanner();
-} elseif ($type === 'film') {
-    require_once __DIR__ . '/../../app/Services/FilmScanner.php';
-    $scanner = new FilmScanner();
-} else {
-    $scanner = new AnimeScanner();
-}
-
-$slug          = $_GET['slug']    ?? '';
+preg_match('/(?:^|&)slug=([^&]*)/', $_SERVER['QUERY_STRING'] ?? '', $_m);
+$slug          = isset($_m[1]) ? rawurldecode($_m[1]) : '';
 $seasonNumber  = max(1, (int) ($_GET['saison']  ?? 1));
 $episodeNumber = max(1, (int) ($_GET['episode'] ?? 1));
 
 if ($type === 'film') {
-    $anime = $slug ? $scanner->getFilmBySlug($slug) : null;
-    // Films : toujours saison 1, épisode 1
+    $anime = $slug ? IndexManager::getBySlug('film', $slug) : null;
     $seasonNumber  = 1;
     $episodeNumber = 1;
-} elseif ($type === 'serie') {
-    $anime = $slug ? $scanner->getAnimeBySlug($slug) : null;
 } else {
-    $anime = $slug ? $scanner->getAnimeBySlug($slug) : null;
+    $imType = in_array($type, ['anime', 'serie'], true) ? $type : 'anime';
+    $anime  = $slug ? IndexManager::getBySlug($imType, $slug) : null;
 }
 
 if (!$anime) {
@@ -41,453 +26,389 @@ if (!$anime) {
     exit;
 }
 
-// Saison courante
 $season = null;
 foreach ($anime['seasons'] as $s) {
-    if ($s['number'] === $seasonNumber) {
-        $season = $s;
-        break;
-    }
+    if ($s['number'] === $seasonNumber) { $season = $s; break; }
 }
 $season ??= $anime['seasons'][0] ?? null;
 
 if (!$season || empty($season['episodes'])) {
-    header('Location: /anime/?slug=' . urlencode($slug));
+    header('Location: /content/?type=anime&slug=' . urlencode($slug));
     exit;
 }
 
-// Épisode courant
-$episode     = null;
-$episodeIdx  = 0;
+$episode    = null;
+$episodeIdx = 0;
 foreach ($season['episodes'] as $i => $ep) {
-    if ($ep['number'] === $episodeNumber) {
-        $episode    = $ep;
-        $episodeIdx = $i;
-        break;
-    }
+    if ($ep['number'] === $episodeNumber) { $episode = $ep; $episodeIdx = $i; break; }
 }
-$episode ??= $season['episodes'][0];
-$episodeIdx = $episodeIdx ?: 0;
+$episode    ??= $season['episodes'][0];
+$episodeIdx   = $episodeIdx ?: 0;
 
-// Épisode précédent / suivant au sein de la même saison
 $prevEpisode = $season['episodes'][$episodeIdx - 1] ?? null;
 $nextEpisode = $season['episodes'][$episodeIdx + 1] ?? null;
 
-// ---- LOGIQUE DE SAISON SUIVANTE S'IL N'Y A PLUS D'ÉPISODE ----
 $nextSeasonNumber = null;
-
-$nextSeasonLabel = null;
+$nextSeasonLabel  = null;
 if (!$nextEpisode) {
-    // On cherche s'il y a une saison avec un numéro supérieur
     foreach ($anime['seasons'] as $s) {
-        // Ignore la saison spéciale (999) s'il y en a une
         if ($s['number'] > $seasonNumber && $s['number'] !== 999 && !empty($s['episodes'])) {
             $nextSeasonNumber = $s['number'];
             $nextSeasonLabel  = $s['label'];
-            // On récupère le premier épisode de cette saison suivante
-            $nextEpisode = $s['episodes'][0];
-            break; // On a trouvé la saison la plus proche, on s'arrête
+            $nextEpisode      = $s['episodes'][0];
+            break;
         }
     }
 }
 
-// URLs de navigation (Ajustées dynamiquement avec le bon numéro de saison)
 $baseUrl = '/player/?slug=' . urlencode($slug) . ($type !== 'anime' ? '&type=' . urlencode($type) : '');
 $prevUrl = $prevEpisode ? $baseUrl . '&saison=' . $seasonNumber . '&episode=' . $prevEpisode['number'] : null;
 
 if ($nextEpisode) {
-    // Si c'est un changement de saison, on utilise $nextSeasonNumber, sinon la saison actuelle
     $targetSeason = $nextSeasonNumber ?? $seasonNumber;
     $nextUrl = $baseUrl . '&saison=' . $targetSeason . '&episode=' . $nextEpisode['number'];
 } else {
     $nextUrl = null;
 }
-// -------------------------------------------------------------
 
-// URL stream
-$streamUrl = '/stream/index.php?path=' . rawurlencode($episode['file_path']);
-
-// Clé unique pour la progression
+$streamUrl   = '/stream/index.php?path=' . rawurlencode($episode['file_path']);
 $progressKey = md5($episode['file_path']);
 
-// Accent couleur
-$accentColor = $anime['metadata']['coverImage']['color'] ?? '#F7D622';
-$synopsis = null;
-if (!empty($anime['synopsis'])) {
-    $clean = preg_replace('/<br\s*\/?>/i', "\n", $anime['synopsis']);
-    $clean = strip_tags($clean);
-    $clean = html_entity_decode($clean, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-    $synopsis = trim(preg_replace("/\n{3,}/", "\n\n", $clean));
+// Sous-titres
+$subtitles = [];
+$videoDir  = dirname($episode['file_path']);
+$langLabels = [
+    'fr' => 'Français', 'en' => 'English', 'ja' => '日本語',
+    'es' => 'Español',  'de' => 'Deutsch', 'it' => 'Italiano', 'pt' => 'Português',
+];
+
+$subtitleDir = null;
+foreach ([$videoDir . '/subtitle', dirname($videoDir) . '/subtitle'] as $candidate) {
+    if (is_dir($candidate)) { $subtitleDir = $candidate; break; }
 }
 
-$cachePath = $_SERVER['DOCUMENT_ROOT'] . '/images/thumbnails/';
-$durations = file_exists($cachePath . 'durations.json') ? json_decode(file_get_contents($cachePath . 'durations.json'), true) : [];
-$sizes     = file_exists($cachePath . 'filesizes.json') ? json_decode(file_get_contents($cachePath . 'filesizes.json'), true) : [];
+$videoFilename = pathinfo($episode['file_path'], PATHINFO_FILENAME);
+preg_match('/S(\d{1,2})E(\d{1,2})/i', $videoFilename, $epMatch);
+$epCode = $epMatch[0] ?? null;
 
-// ── TMDB données d'épisodes pour la saison active ────────────────────────────
-$tmdbEpisodes  = [];
-$seasonMetaPath = null;
-if ($season && !empty($season['episodes'])) {
-    $firstEpPath  = $season['episodes'][0]['file_path'] ?? '';
-    $seasonFolder = $firstEpPath ? dirname($firstEpPath) : '';
-    foreach ([$seasonFolder . '/metadata.json', dirname($seasonFolder) . '/metadata.json'] as $candidate) {
-        if ($candidate !== '/metadata.json' && file_exists($candidate)) {
-            $seasonJson = @json_decode(@file_get_contents($candidate), true) ?: [];
-            if (!empty($seasonJson['episodes']) && isset($seasonJson['season_number'])) {
-                $localNum = 1;
-                foreach ($seasonJson['episodes'] as $tmdbEp) {
-                    $tmdbEpisodes[$localNum++] = $tmdbEp;
+$vttByLang = [];
+$vttFiles  = $subtitleDir
+    ? (glob($subtitleDir . '/*.vtt') ?: [])
+    : (glob($videoDir . '/*.vtt') ?: []);
+
+foreach ($vttFiles as $vttPath) {
+    $vttName = pathinfo($vttPath, PATHINFO_FILENAME);
+    if ($subtitleDir && $epCode && !preg_match('/' . preg_quote($epCode, '/') . '/i', $vttName)) continue;
+    $parts = explode('.', $vttName);
+    $last  = strtolower(end($parts));
+    $prev  = count($parts) >= 2 ? strtolower($parts[count($parts) - 2]) : '';
+    if (isset($langLabels[$last])) {
+        $lang    = $last;
+        $vttType = in_array($prev, ['complet', 'forced'], true) ? $prev : 'complet';
+    } else {
+        $lang    = 'fr';
+        $vttType = in_array($last, ['complet', 'forced'], true) ? $last : 'complet';
+    }
+    $vttByLang[$lang][$vttType] = $vttPath;
+}
+
+foreach ($vttByLang as $lang => $types) {
+    $hasComplet = isset($types['complet']);
+    $hasForced  = isset($types['forced']);
+    $baseLabel  = $langLabels[$lang] ?? strtoupper($lang);
+    if ($hasForced) {
+        $subtitles[] = ['url' => '/stream/subtitle.php?path=' . rawurlencode($types['forced']), 'lang' => $lang, 'label' => $baseLabel . ' (Auto)', 'show' => true];
+    }
+    if ($hasComplet) {
+        $subtitles[] = ['url' => '/stream/subtitle.php?path=' . rawurlencode($types['complet']), 'lang' => $lang, 'label' => $baseLabel, 'show' => !$hasForced && $lang === 'fr'];
+    }
+}
+
+// TMDB épisodes pour l'overlay
+$tmdbEpisodes = [];
+if ($season) {
+    $folderName  = basename($season['path'] ?? '');
+    $metaSeasons = ($anime['metadata']['seasons'] ?? []);
+    if (!empty($metaSeasons[$folderName]['episodes'])) {
+        foreach (array_values($metaSeasons[$folderName]['episodes']) as $idx => $ep) {
+            $tmdbEpisodes[$idx + 1] = $ep;
+        }
+    } elseif (!empty($season['episodes'])) {
+        $firstEpPath  = $season['episodes'][0]['file_path'] ?? '';
+        $seasonFolder = $firstEpPath ? dirname($firstEpPath) : '';
+        foreach ([$seasonFolder . '/metadata.json', dirname($seasonFolder) . '/metadata.json'] as $candidate) {
+            if ($candidate !== '/metadata.json' && file_exists($candidate)) {
+                $seasonJson = @json_decode(@file_get_contents($candidate), true) ?: [];
+                if (!empty($seasonJson['episodes']) && isset($seasonJson['season_number'])) {
+                    $localNum = 1;
+                    foreach ($seasonJson['episodes'] as $tmdbEp) { $tmdbEpisodes[$localNum++] = $tmdbEp; }
+                    break;
                 }
-                $seasonMetaPath = $candidate;
-                break;
             }
         }
     }
 }
 
-// ── Suggestions (score multi-facteurs) ──────────────────────────────────────
-$similaires = [];
-$currentGenres = array_unique($anime['genres'] ?? []);
-if (!empty($currentGenres)) {
-    $allItems = match(true) {
-        $type === 'serie' && method_exists($scanner, 'getAllSeries') => $scanner->getAllSeries(),
-        $type === 'film'  && method_exists($scanner, 'getAllFilms')  => $scanner->getAllFilms(),
-        method_exists($scanner, 'getAllAnimes')                      => $scanner->getAllAnimes(),
-        default                                                      => [],
-    };
-    $scored = [];
-    foreach ($allItems as $item) {
-        if ($item['slug'] === $slug) continue;
-        $itemGenres = array_unique($item['genres'] ?? []);
-        $common     = array_values(array_intersect($currentGenres, $itemGenres));
-        if (empty($common)) continue;
-
-        // Jaccard genre similarity (pénalise les items avec peu de genres en commun sur beaucoup)
-        $union   = array_unique(array_merge($currentGenres, $itemGenres));
-        $jaccard = count($common) / count($union) * 4.0;
-
-        // Proximité de note (échelle 0-100)
-        $sA = $anime['score'] ?? null;
-        $sB = $item['score']  ?? null;
-        $scoreBonus = ($sA !== null && $sB !== null)
-            ? max(0.0, 1 - abs($sA - $sB) / 3) * 1.5 : 0.0;
-
-        // Proximité d'année (±10 ans max)
-        $yA = $anime['year'] ?? null;
-        $yB = $item['year']  ?? null;
-        $yearBonus = ($yA !== null && $yB !== null)
-            ? max(0.0, 1 - abs($yA - $yB) / 10) * 1.0 : 0.0;
-
-        // Même studio
-        $studioBonus = (!empty($anime['studio']) && !empty($item['studio']) && $anime['studio'] === $item['studio'])
-            ? 0.75 : 0.0;
-
-        $scored[] = [
-            'item'         => $item,
-            'total'        => $jaccard + $scoreBonus + $yearBonus + $studioBonus,
-            'match_genres' => array_slice($common, 0, 3),
-        ];
-    }
-    usort($scored, fn($a, $b) => $b['total'] <=> $a['total']);
-    $similaires = array_slice($scored, 0, 10);
-}
-
-// Cast
-$castData = array_slice($anime['metadata']['credits']['cast'] ?? [], 0, 16);
+$backUrl = '/content/?type=' . $type . '&slug=' . urlencode($slug);
 ?>
 <!DOCTYPE html>
 <html lang="fr">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>
-        <?= htmlspecialchars($episode['title']) ?> —
-        <?= htmlspecialchars($anime['title']) ?> —
-        Hoshimi
-    </title>
-
+    <title><?php
+        if ($type === 'film') {
+            echo htmlspecialchars($anime['title']);
+        } else {
+            $epNum = sprintf('S%02dE%02d', $seasonNumber, $episodeNumber);
+            echo $epNum . ' · ' . htmlspecialchars($anime['title_english'] ?: $anime['title']);
+        }
+    ?> — Hoshimi</title>
     <link rel="stylesheet" href="../css/hoshimi.css">
-
     <link href="https://cdnjs.cloudflare.com/ajax/libs/video.js/8.10.0/video-js.min.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/video.js/8.10.0/video.min.js"></script>
 </head>
+<body class="player-body--fullscreen">
 
-<body>
-    <div class="player-page">
-        <?php include "../components/navbar.php"; ?>
+    <div class="video-wrapper" id="hpl-wrapper">
 
-        <main>
+        <!-- Overlay custom -->
+        <div class="hpl-overlay" id="hpl-overlay">
 
-            <div class="video-wrapper">
-                <video
-                    id="hoshimi-player"
-                    class="video-js vjs-default-skin vjs-big-play-centered"
-                    controls
-                    preload="auto"
-                    data-progress-key="<?= htmlspecialchars($progressKey) ?>"
-                    data-next-url="<?= htmlspecialchars($nextUrl ?? '') ?>"
-                    data-next-title="<?= htmlspecialchars($nextEpisode['title'] ?? '') ?>"
-                    data-next-number="<?= $nextEpisode['number'] ?? '' ?>">
-                    <?php
-                    $ext = strtolower(pathinfo($episode['file_path'], PATHINFO_EXTENSION));
-                    // mkv/avi sont transcodés à la volée en MP4 par stream/index.php
-                    $mimeMap  = ['mp4' => 'video/mp4', 'webm' => 'video/webm', 'm4v' => 'video/mp4'];
-                    $mimeType = $mimeMap[$ext] ?? 'video/mp4';
-                    ?>
-                    <source src="<?= htmlspecialchars($streamUrl) ?>" type="<?= $mimeType ?>">
-                    <p class="vjs-no-js">Votre navigateur ne supporte pas la lecture vidéo.</p>
-                </video>
-            </div>
-
-            <div class="player-info">
-                <div class="player-info__inner">
-
-                    <?php $backTypeParam = $type !== 'anime' ? '&type=' . urlencode($type) : ''; ?>
-                    <a href="/anime/?slug=<?= urlencode($slug) ?><?= $backTypeParam ?>" class="player-info__back">
-                        ← Retour
+            <!-- Barre du haut -->
+            <div class="hpl-top" id="hpl-top">
+                <div class="hpl-top__left">
+                    <a href="<?= htmlspecialchars($backUrl) ?>" class="hpl-icon-btn" title="Retour">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><polyline points="12 19 5 12 12 5"/></svg>
                     </a>
-
-                    <div class="player-info__titles">
-                        <div class="player-info__anime">
-                            <span><?= htmlspecialchars($anime['title_english'] ?? $anime['title'] ?? '') ?></span>
-                            <span>•</span>
-                            <span><?= htmlspecialchars($season['label']) ?></span>
-                        </div>
-
-                        <?php
-                        $curTmdb     = $tmdbEpisodes[$episode['number']] ?? null;
-                        $curEpName   = $curTmdb['name'] ?? null;
-                        $curEpOverview = $curTmdb['overview'] ?? null;
-                        ?>
-                        <div class="player-info__episode">
-                            <?php if ($season['number'] == 999) :
-                                $cleanFilmTitle = $episode['title'];
-                                $search = ['1080p', '720p', 'MULTISUB', 'MULTI', 'FILM', 'x264', 'x265'];
-                                $cleanFilmTitle = str_ireplace($search, '', $cleanFilmTitle);
-                                $cleanFilmTitle = trim($cleanFilmTitle, " _-");
-                                echo htmlspecialchars(
-                                    (empty($cleanFilmTitle) || strtolower($cleanFilmTitle) == strtolower($anime['title']))
-                                        ? 'Film' : $cleanFilmTitle
-                                );
-                            else : ?>
-                                Épisode <?= str_pad((string)$episode['number'], 2, '0', STR_PAD_LEFT) ?>
-                                <?php if ($curEpName): ?>
-                                    <span class="player-info__ep-sep">•</span>
-                                    <span class="player-info__ep-name"><?= htmlspecialchars($curEpName) ?></span>
-                                <?php endif; ?>
-                            <?php endif; ?>
-                        </div>
-
-                        <?php if ($curEpOverview): ?>
-                            <p class="player-info__ep-synopsis"><?= htmlspecialchars($curEpOverview) ?></p>
-                        <?php endif; ?>
-
-                        <div class="player-info__meta">
-                            <?php if (!empty($episode['quality'])) : ?>
-                                <span><?= strtoupper(htmlspecialchars($episode['quality'])) ?></span>
-                                <span>•</span>
-                            <?php endif; ?>
-                            <?php if (!empty($episode['language'])) : ?>
-                                <span><?= htmlspecialchars($episode['language']) ?></span>
-                                <span>•</span>
-                            <?php endif; ?>
-                            <span><?= htmlspecialchars(strtoupper(pathinfo($episode['filename'], PATHINFO_EXTENSION))) ?></span>
-                        </div>
-                    </div>
-
-                    <div class="player-info__nav">
-                        <?php if (count($anime['seasons']) > 1) : ?>
-                            <select class="season-select" onchange="window.location.href='/player/?slug=<?= urlencode($slug) ?><?= $backTypeParam ?>&saison='+this.value+'&episode=1'">
-                                <?php foreach ($anime['seasons'] as $s) : ?>
-                                    <option value="<?= $s['number'] ?>" <?= $s['number'] === $seasonNumber ? 'selected' : '' ?>>
-                                        <?= htmlspecialchars($s['label']) ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                        <?php endif; ?>
-
-                        <?php if ($prevUrl) : ?>
-                            <a href="<?= htmlspecialchars($prevUrl) ?>" class="btn btn--ghost" title="Précédent">← Préc.</a>
-                        <?php endif; ?>
-                        <?php if ($nextUrl) : ?>
-                            <a href="<?= htmlspecialchars($nextUrl) ?>" class="btn btn--primary" title="Suivant">
-                                <?= $nextSeasonNumber ? htmlspecialchars($nextSeasonLabel ?? 'Saison ' . $nextSeasonNumber) . ' →' : 'Suiv. →' ?>
+                    <div class="hpl-title-block">
+                        <span class="hpl-anime-title"><?= htmlspecialchars($anime['title_english'] ?? $anime['title']) ?></span>
+                        <?php if ($type !== 'film' && $season['number'] !== 999): ?>
+                        <div class="hpl-ep-nav">
+                            <?php if ($prevUrl): ?>
+                            <a href="<?= htmlspecialchars($prevUrl) ?>" class="hpl-ep-nav-btn" title="Épisode précédent">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
                             </a>
+                            <?php else: ?><span class="hpl-ep-nav-btn is-disabled"></span><?php endif; ?>
+                            <span class="hpl-ep-pill">S<?= str_pad((string)$seasonNumber, 2, '0', STR_PAD_LEFT) ?>E<?= str_pad((string)$episodeNumber, 2, '0', STR_PAD_LEFT) ?></span>
+                            <?php if ($nextUrl): ?>
+                            <a href="<?= htmlspecialchars($nextUrl) ?>" class="hpl-ep-nav-btn" title="Épisode suivant">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                            </a>
+                            <?php else: ?><span class="hpl-ep-nav-btn is-disabled"></span><?php endif; ?>
+                        </div>
                         <?php endif; ?>
                     </div>
-
                 </div>
+                <div class="hpl-top__right"></div>
             </div>
 
-            <!-- ── Tab bar (full-width, hors player-body) ── -->
-            <?= render_tabs_bar([
-                ['id' => 'episodes',    'label' => 'Épisodes',    'icon' => 'play',     'active' => $type !== 'film', 'hidden' => $type === 'film', 'count' => count($season['episodes'])],
-                ['id' => 'synopsis',    'label' => 'Synopsis',    'icon' => 'book',     'active' => $type === 'film'],
-                ['id' => 'cast',        'label' => 'Casting',     'icon' => 'cast',     'active' => false, 'hidden' => empty($castData)],
-                ['id' => 'suggestions', 'label' => 'Suggestions', 'icon' => 'sparkles', 'active' => false, 'hidden' => empty($similaires)],
-            ]) ?>
+            <!-- Zone de clic centrale -->
+            <div class="hpl-click-zone" id="hpl-click-zone"></div>
 
-            <div class="player-body">
-
-                <!-- ── Panel : Épisodes ── -->
-                <div class="detail-tab-panel <?= $type !== 'film' ? 'is-active' : '' ?>" id="tab-episodes" <?= $type === 'film' ? 'hidden' : '' ?>>
-                    <div class="episode-list">
-                        <?php foreach ($season['episodes'] as $ep) :
-                            $isActive   = $ep['number'] === $episode['number'];
-                            $epNum      = $ep['number'];
-                            $epKey      = md5($ep['file_path']);
-                            $thumb      = ThumbnailHelper::getUrlFromIndex($ep['file_path']);
-                            $duration   = $durations[$epKey] ?? null;
-                            $filesize   = $sizes[$epKey] ?? null;
-                            $lang       = strtoupper($ep['language'] ?? 'VOSTFR');
-
-                            $tmdbEp     = $tmdbEpisodes[$epNum] ?? null;
-                            $stillUrl   = $tmdbEp['still_urls']['w300'] ?? null;
-                            $epTmdbName = $tmdbEp['name'] ?? null;
-                            $epOverview = $tmdbEp['overview'] ?? null;
-
-                            $imgSrc = $stillUrl ?: $thumb;
-
-                            if ($season['number'] == 999) {
-                                $epLabel = trim(str_ireplace(['1080p', '720p', 'MULTISUB', 'MULTI', 'FILM', 'x264', 'x265'], '', $ep['title']), " _-") ?: 'Film';
-                            } else {
-                                $epLabel = 'E' . str_pad((string)$epNum, 2, '0', STR_PAD_LEFT);
-                                if ($epTmdbName) $epLabel .= ' — ' . $epTmdbName;
-                                elseif ($ep['title'] && $ep['title'] !== $epLabel) $epLabel .= ' — ' . $ep['title'];
-                            }
-                        ?>
-                            <a href="<?= $baseUrl . '&saison=' . $seasonNumber . '&episode=' . $epNum ?>"
-                                class="episode-card <?= $isActive ? 'is-active' : '' ?>"
-                                data-ep-key="<?= $epKey ?>">
-
-                                <div class="episode-card__thumbnail <?= empty($imgSrc) ? 'is-empty' : '' ?>">
-                                    <?php if ($imgSrc): ?>
-                                        <img src="<?= htmlspecialchars($imgSrc) ?>"
-                                            alt="" loading="lazy"
-                                            onerror="this.parentElement.classList.add('is-empty'); this.remove();">
-                                    <?php endif; ?>
-                                    <div class="episode-card__placeholder-number"><?= str_pad((string)$epNum, 2, '0', STR_PAD_LEFT) ?></div>
-                                    <div class="episode-card__overlay">
-                                        <div class="episode-card__play-icon">▶</div>
-                                    </div>
-                                    <?php if ($duration): ?>
-                                        <div class="episode-card__duration"><?= $duration ?></div>
-                                    <?php endif; ?>
-                                    <div class="episode-card__progress">
-                                        <div class="episode-card__progress-fill" style="width: 0%"></div>
-                                    </div>
-                                </div>
-
-                                <div class="episode-card__body">
-                                    <span class="episode-card__label"><?= htmlspecialchars($epLabel) ?></span>
-                                    <?php if ($epOverview): ?>
-                                        <p class="episode-card__description"><?= htmlspecialchars($epOverview) ?></p>
-                                    <?php endif; ?>
-                                    <div class="episode-card__info">
-                                        <span class="episode-card__lang" data-lang="<?= $lang ?>"><?= $lang ?></span>
-                                        <?php if ($filesize): ?>
-                                            <span style="font-size:0.65rem; color:var(--color-text-muted); margin-left:auto;"><?= $filesize ?></span>
-                                        <?php endif; ?>
-                                    </div>
-                                </div>
-                            </a>
-                        <?php endforeach; ?>
+            <!-- Barre du bas -->
+            <div class="hpl-bottom" id="hpl-bottom">
+                <div class="hpl-progress-wrap" id="hpl-progress-wrap">
+                    <div class="hpl-progress-track">
+                        <div class="hpl-buffer" id="hpl-buffer"></div>
+                        <div class="hpl-played" id="hpl-played"></div>
+                        <div class="hpl-thumb" id="hpl-thumb"></div>
+                        <div class="hpl-hover-tooltip" id="hpl-thumb-tooltip">0:00</div>
                     </div>
                 </div>
-
-                <!-- ── Panel : Synopsis ── -->
-                <div class="detail-tab-panel <?= $type === 'film' ? 'is-active' : '' ?>" id="tab-synopsis" <?= $type !== 'film' ? 'hidden' : '' ?>>
-                    <?php if (!empty($anime['genres'])): ?>
-                        <div class="player-about__genres">
-                            <?php foreach ($anime['genres'] as $genre): ?>
-                                <a href="/animes?genre=<?= urlencode($genre) ?>" class="badge"><?= htmlspecialchars($genre) ?></a>
-                            <?php endforeach; ?>
-                        </div>
-                    <?php endif; ?>
-                    <?php if ($synopsis): ?>
-                        <p class="player-about__synopsis"><?= nl2br(htmlspecialchars($synopsis)) ?></p>
-                    <?php else: ?>
-                        <p style="color:var(--color-text-muted)">Aucun synopsis disponible.</p>
-                    <?php endif; ?>
-                    <a href="/anime/?slug=<?= urlencode($slug) ?><?= $backTypeParam ?>" class="btn btn--ghost" style="margin-top:20px; display:inline-flex;">Page complète →</a>
-                </div>
-
-                <!-- ── Panel : Casting ── -->
-                <?php if (!empty($castData)): ?>
-                    <div class="detail-tab-panel" id="tab-cast" hidden>
-                        <?= render_cast_grid($castData) ?>
-                    </div>
-                <?php endif; ?>
-
-                <?php if (!empty($similaires)): ?>
-                    <div class="detail-tab-panel" id="tab-suggestions" hidden>
-                        <div class="suggestions-section">
-                            <div class="grid-cards">
-                                <?php foreach ($similaires as $simData): ?>
-                                    <?= render_card($simData['item'], $type, [
-                                        'match_genres' => $simData['match_genres'],
-                                    ]) ?>
-                                <?php endforeach; ?>
+                <div class="hpl-controls">
+                    <div class="hpl-controls__left">
+                        <button class="hpl-icon-btn" id="hpl-play-btn" title="Lecture/Pause">
+                            <svg class="hpl-icon-play" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z"/></svg>
+                            <svg class="hpl-icon-pause" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:none"><rect x="14" y="3" width="5" height="18" rx="1"/><rect x="5" y="3" width="5" height="18" rx="1"/></svg>
+                        </button>
+                        <button class="hpl-icon-btn" id="hpl-back10" title="Reculer 10s">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
+                        </button>
+                        <button class="hpl-icon-btn" id="hpl-fwd10" title="Avancer 10s">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path></svg>
+                        </button>
+                        <div class="hpl-vol-group">
+                            <button class="hpl-icon-btn" id="hpl-mute-btn" title="Volume">
+                                <svg class="hpl-icon-vol hpl-icon-vol-high" xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="M16 9a5 5 0 0 1 0 6"/><path d="M19.364 18.364a9 9 0 0 0 0-12.728"/></svg>
+                                <svg class="hpl-icon-vol hpl-icon-vol-low" xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="M16 9a5 5 0 0 1 0 6"/></svg>
+                                <svg class="hpl-icon-muted" xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><line x1="22" x2="16" y1="9" y2="15"/><line x1="16" x2="22" y1="9" y2="15"/></svg>
+                            </button>
+                            <div class="hpl-vol-slider-wrap" id="hpl-vol-wrap">
+                                <div class="hpl-vol-track">
+                                    <div class="hpl-vol-fill" id="hpl-vol-fill"></div>
+                                    <div class="hpl-vol-thumb" id="hpl-vol-thumb"></div>
+                                </div>
                             </div>
                         </div>
+                        <span class="hpl-time-display" id="hpl-time">0:00 / 0:00</span>
                     </div>
-                <?php endif; ?>
-
+                    <div class="hpl-controls__right">
+                        <?php if ($type !== 'film' && $season['number'] !== 999): ?>
+                        <button class="hpl-icon-btn" id="hpl-eplist-btn" title="Épisodes">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h.01"/><path d="M3 12h.01"/><path d="M3 19h.01"/><path d="M8 5h13"/><path d="M8 12h13"/><path d="M8 19h13"/></svg>
+                        </button>
+                        <?php endif; ?>
+                        <button class="hpl-icon-btn" id="hpl-settings-btn" title="Paramètres">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/></svg>
+                        </button>
+                        <button class="hpl-icon-btn" id="hpl-fs-btn" title="Plein écran">
+                            <svg class="hpl-icon-fs-enter" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+                            <svg class="hpl-icon-fs-exit" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/></svg>
+                        </button>
+                    </div>
+                </div>
             </div>
 
+            <!-- Panneau liste d'épisodes -->
+            <?php if ($type !== 'film' && $season['number'] !== 999): ?>
+            <div class="hpl-eplist-panel" id="hpl-eplist-panel">
+                <div class="hpl-eplist-body" id="hpl-eplist-body">
+                    <?php foreach ($anime['seasons'] as $s):
+                        if ($s['number'] === 999 || empty($s['episodes'])) continue;
+                        $isActiveSeason = $s['number'] === $seasonNumber;
+                    ?>
+                    <div class="hpl-eplist-season <?= $isActiveSeason ? 'is-visible' : '' ?>" data-season="<?= $s['number'] ?>">
+                        <div class="hpl-eplist-season-label"><?= htmlspecialchars(strtoupper($s['label'])) ?></div>
+                        <?php foreach ($s['episodes'] as $ep):
+                            $isActive = $isActiveSeason && $ep['number'] === $episode['number'];
+                            $epUrl    = $baseUrl . '&saison=' . $s['number'] . '&episode=' . $ep['number'];
+                            $tmdbEp   = ($isActiveSeason ? $tmdbEpisodes[$ep['number']] ?? null : null);
+                            $epName   = $tmdbEp['name'] ?? ($ep['title'] !== '' ? $ep['title'] : null);
+                        ?>
+                        <a href="<?= htmlspecialchars($epUrl) ?>" class="hpl-eplist-item <?= $isActive ? 'is-active' : '' ?>">
+                            <span class="hpl-eplist-num">E<?= str_pad((string)$ep['number'], 2, '0', STR_PAD_LEFT) ?></span>
+                            <span class="hpl-eplist-name"><?= htmlspecialchars($epName ?? ('Épisode ' . $ep['number'])) ?></span>
+                            <?php if ($isActive): ?>
+                            <svg class="hpl-eplist-check" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                            <?php endif; ?>
+                        </a>
+                        <?php endforeach; ?>
+                    </div>
+                    <?php endforeach; ?>
+                </div>
+                <?php
+                $visibleSeasons = array_filter($anime['seasons'], fn($s) => $s['number'] !== 999 && !empty($s['episodes']));
+                if (count($visibleSeasons) > 1):
+                ?>
+                <div class="hpl-eplist-season-tabs">
+                    <?php foreach ($visibleSeasons as $s): ?>
+                    <button class="hpl-eplist-season-tab <?= $s['number'] === $seasonNumber ? 'is-active' : '' ?>" data-season="<?= $s['number'] ?>">
+                        S<?= str_pad((string)$s['number'], 2, '0', STR_PAD_LEFT) ?>
+                    </button>
+                    <?php endforeach; ?>
+                </div>
+                <?php endif; ?>
+            </div>
+            <?php endif; ?>
 
-        </main>
+            <!-- Panneau paramètres -->
+            <div class="hpl-settings-panel" id="hpl-settings-panel">
+                <div class="hpl-settings-menu is-visible" id="hpl-menu-main">
+                    <div class="hpl-settings-header">Paramètres</div>
+                    <?php if (!empty($subtitles)): ?>
+                    <button class="hpl-settings-row" data-submenu="subtitles">
+                        <span class="hpl-settings-row__label">Sous-titres</span>
+                        <div class="hpl-settings-row__right">
+                            <span class="hpl-settings-row__val" id="hpl-cur-sub">Désactivés</span>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                        </div>
+                    </button>
+                    <?php endif; ?>
+                    <button class="hpl-settings-row" data-submenu="speed">
+                        <span class="hpl-settings-row__label">Vitesse</span>
+                        <div class="hpl-settings-row__right">
+                            <span class="hpl-settings-row__val" id="hpl-cur-speed">Normal</span>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                        </div>
+                    </button>
+                </div>
+                <?php if (!empty($subtitles)): ?>
+                <div class="hpl-settings-menu" id="hpl-menu-subtitles">
+                    <div class="hpl-submenu-header">
+                        <button class="hpl-submenu-back" data-back="main">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                        </button>
+                        <span class="hpl-submenu-title">Sous-titres</span>
+                    </div>
+                    <button class="hpl-settings-option is-active" data-track-idx="-1">Désactivés<svg class="hpl-opt-check" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></button>
+                    <?php foreach ($subtitles as $i => $sub): ?>
+                    <button class="hpl-settings-option" data-track-idx="<?= $i ?>"><?= htmlspecialchars($sub['label']) ?><svg class="hpl-opt-check" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></button>
+                    <?php endforeach; ?>
+                </div>
+                <?php endif; ?>
+                <div class="hpl-settings-menu" id="hpl-menu-speed">
+                    <div class="hpl-submenu-header">
+                        <button class="hpl-submenu-back" data-back="main">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                        </button>
+                        <span class="hpl-submenu-title">Vitesse</span>
+                    </div>
+                    <?php foreach ([['0.5','×0.5'],['0.75','×0.75'],['1','Normal'],['1.25','×1.25'],['1.5','×1.5'],['2','×2']] as [$spVal, $spLbl]): ?>
+                    <button class="hpl-settings-option <?= $spVal === '1' ? 'is-active' : '' ?>" data-speed="<?= $spVal ?>"><?= $spLbl ?><svg class="hpl-opt-check" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></button>
+                    <?php endforeach; ?>
+                </div>
+            </div>
 
+        </div>
+        <!-- fin overlay -->
+
+        <video
+            id="hoshimi-player"
+            class="video-js vjs-default-skin vjs-big-play-centered"
+            controls
+            preload="auto"
+            data-progress-key="<?= htmlspecialchars($progressKey) ?>"
+            data-next-url="<?= htmlspecialchars($nextUrl ?? '') ?>"
+            data-next-title="<?= htmlspecialchars($nextEpisode['title'] ?? '') ?>"
+            data-next-number="<?= $nextEpisode['number'] ?? '' ?>">
+            <?php
+            $ext      = strtolower(pathinfo($episode['file_path'], PATHINFO_EXTENSION));
+            $mimeMap  = ['mp4' => 'video/mp4', 'webm' => 'video/webm', 'm4v' => 'video/mp4'];
+            $mimeType = $mimeMap[$ext] ?? 'video/mp4';
+            ?>
+            <source src="<?= htmlspecialchars($streamUrl) ?>" type="<?= $mimeType ?>">
+            <?php foreach ($subtitles as $sub): ?>
+            <track kind="subtitles"
+                   src="<?= htmlspecialchars($sub['url']) ?>"
+                   srclang="<?= htmlspecialchars($sub['lang']) ?>"
+                   label="<?= htmlspecialchars($sub['label']) ?>">
+            <?php endforeach; ?>
+            <p class="vjs-no-js">Votre navigateur ne supporte pas la lecture vidéo.</p>
+        </video>
     </div>
 
-    <?php if ($nextEpisode) : ?>
-        <div class="next-toast" id="next-toast">
-            <div class="next-toast__label">
-                <?= $nextSeasonNumber ? htmlspecialchars($nextSeasonLabel ?? 'Saison ' . $nextSeasonNumber) . ' dans ' : 'Épisode suivant dans ' ?><span id="next-countdown">10</span>s
-            </div>
-            <div class="next-toast__title">
-                <?= $nextSeasonNumber ? htmlspecialchars($nextSeasonLabel ?? 'Saison ' . $nextSeasonNumber) . ' — ' : '' ?>
-                Ép. <?= str_pad((string)$nextEpisode['number'], 2, '0', STR_PAD_LEFT) ?>
-                — <?= htmlspecialchars($nextEpisode['title']) ?>
-            </div>
-            <div class="next-toast__countdown">
-                <div class="next-toast__countdown-bar" id="next-bar"></div>
-            </div>
-            <div class="next-toast__actions">
-                <a href="<?= htmlspecialchars($nextUrl) ?>" class="btn btn--primary" style="flex:1; justify-content:center;">
-                    Regarder maintenant
-                </a>
-                <button class="btn btn--ghost" onclick="cancelNext()">Annuler</button>
-            </div>
+    <?php if ($nextEpisode): ?>
+    <div class="next-toast" id="next-toast">
+        <div class="next-toast__label">
+            <?= $nextSeasonNumber ? htmlspecialchars($nextSeasonLabel ?? 'Saison ' . $nextSeasonNumber) . ' dans ' : 'Épisode suivant dans ' ?><span id="next-countdown">10</span>s
         </div>
+        <div class="next-toast__title">
+            <?= $nextSeasonNumber ? htmlspecialchars($nextSeasonLabel ?? 'Saison ' . $nextSeasonNumber) . ' — ' : '' ?>
+            Ép. <?= str_pad((string)$nextEpisode['number'], 2, '0', STR_PAD_LEFT) ?>
+            — <?= htmlspecialchars($nextEpisode['title']) ?>
+        </div>
+        <div class="next-toast__countdown">
+            <div class="next-toast__countdown-bar" id="next-bar"></div>
+        </div>
+        <div class="next-toast__actions">
+            <a href="<?= htmlspecialchars($nextUrl) ?>" class="btn btn--primary" style="flex:1; justify-content:center;">Regarder maintenant</a>
+            <button class="btn btn--ghost" onclick="cancelNext()">Annuler</button>
+        </div>
+    </div>
     <?php endif; ?>
 
     <script>
         window.HOSHIMI_PLAYER = {
             progressKey: <?= json_encode($progressKey) ?>,
             isFilm:      <?= $type === 'film' ? 'true' : 'false' ?>,
+            subtitles:   <?= json_encode(array_map(fn($s) => ['label' => $s['label'], 'show' => $s['show']], $subtitles)) ?>,
         };
-        window.HOSHIMI_NEXT_URL    = <?= json_encode($nextUrl) ?>;
-        window.HOSHIMI_ACCENT_DATA = <?= json_encode($anime['metadata'] ?? []) ?>;
+        window.HOSHIMI_NEXT_URL = <?= json_encode($nextUrl) ?>;
     </script>
-    <script src="../js/hoshimi_accent.js"></script>
-    <script src="../js/hoshimi_storage.js"></script>
-    <script src="../js/hoshimi_player.js"></script>
-    <script src="../js/hoshimi_next.js"></script>
-    <script src="../js/hoshimi_tabs.js"></script>
-    <script>
-        HoshimiStorage.initFavoriteButton?.(
-            document.querySelector('[data-fav-btn]'),
-            <?= json_encode($anime['slug']) ?>, {
-                title:     <?= json_encode($anime['title']) ?>,
-                cover_url: <?= json_encode($anime['cover_url'] ?? '') ?>,
-                type:      <?= json_encode($type) ?>,
-            }
-        );
-    </script>
+    <script src="../js/storage.js"></script>
+    <script src="../js/player.js"></script>
+    <script src="../js/player-next.js"></script>
 
-    <?php include "../components/footer.php"; ?>
 </body>
-
 </html>
