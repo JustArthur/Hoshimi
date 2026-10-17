@@ -37,3 +37,6 @@ desktop.ini
 *.swo
 
 src/cli/__pycache__/
+
+# qBittorrent (contient identifiants WebUI)
+qBittorrent.conf
