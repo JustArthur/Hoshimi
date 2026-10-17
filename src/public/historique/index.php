@@ -232,7 +232,7 @@ $current_path = '/historique';
             if (diff < 3600)   return 'Il y a ' + Math.floor(diff / 60) + ' min';
             if (diff < 86400)  return 'Il y a ' + Math.floor(diff / 3600) + ' h';
             if (diff < 604800) return 'Il y a ' + Math.floor(diff / 86400) + ' j';
-            return new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+            return 'Le ' + new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
         }
 
         function playerUrl(ep, type, slug) {
@@ -313,7 +313,7 @@ $current_path = '/historique';
         // ── Limit counter ─────────────────────────────────────────────────────
         function buildStats(all) {
             const limitEl = document.getElementById('hist-limit-counter');
-            if (limitEl) limitEl.textContent = `${all.length} / 50`;
+            if (limitEl) limitEl.textContent = `${all.length} / 2000`;
         }
 
         // ── Type tabs ─────────────────────────────────────────────────────────
@@ -384,12 +384,13 @@ $current_path = '/historique';
         function buildCard(entry, index) {
             const { fileKey, fileKeys, p, type, slug, title, cover, ep, pct, completed, watchedCount, totalCount } = entry;
             const url       = playerUrl(ep, type, slug);
-            const typeLabel = { anime: 'Anime', serie: 'Série', film: 'Film' }[type] ?? '';
 
             // Badge coin : progression
+            // Terminé → badge « Vu » (comme la watchlist), sinon pastille % / ép. à côté du bouton retirer
             let cornerBadge;
+            const seenBadge = completed ? `<div class="card__seen-badge">${lc('check', 11)}Vu</div>` : '';
             if (completed) {
-                cornerBadge = `<span class="hist-badge hist-badge--done">${lc('check', 11)}</span>`;
+                cornerBadge = '';
             } else if (type === 'film') {
                 cornerBadge = pct > 0 ? `<span class="hist-badge hist-badge--pct">${pct}%</span>` : '';
             } else {
@@ -420,11 +421,10 @@ $current_path = '/historique';
                     <div class="card__overlay"></div>
                     <div class="card__play"><div class="card__play-btn">${lc('play', 16)}</div></div>
                     <div class="hist-prog-bar"><div class="hist-prog-bar__fill" style="width:${barPct}%"></div></div>
-                    ${cornerBadge}
+                    ${seenBadge}
                     <div class="card__body">
                         <div class="card__title">${esc(title)}</div>
                         <div class="card__meta">
-                            ${typeLabel ? `<span class="card__meta-badge">${esc(typeLabel)}</span>` : ''}
                             ${p.updated_at ? `<span class="card__meta-year">${timeAgo(p.updated_at)}</span>` : ''}
                         </div>
                     </div>
@@ -446,8 +446,14 @@ $current_path = '/historique';
                 }, 200);
             });
 
+            // Badge de progression + bouton retirer dans la même div
+            const corner = document.createElement('div');
+            corner.className = 'fav-corner';
+            corner.innerHTML = cornerBadge;
+            corner.appendChild(removeBtn);
+
             wrap.appendChild(card);
-            wrap.appendChild(removeBtn);
+            wrap.appendChild(corner);
             return wrap;
         }
 

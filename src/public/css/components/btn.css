@@ -87,17 +87,22 @@
 }
 
 .btn--ghost {
-    background: color-mix(in srgb, var(--color-bg) 25%, transparent);
-    color: #fff;
+    background: #1111117d;
+    color: var(--color-text-soft);
     border: 1px solid var(--color-border);
-    backdrop-filter: blur(10px);
+    backdrop-filter: blur(2px);
     font-weight: 500;
 }
 
 .btn--ghost:hover,
 .btn--ghost.is-active {
+    background: rgba(var(--color-accent-rgb, 200, 164, 104), .08);
+    color: var(--color-text);
+    border: 1px solid color-mix(in srgb, var(--tab-color, var(--color-accent)) 30%, transparent);
+}
+
+.btn--ghost.is-active {
     border-color: var(--color-accent);
-    color: var(--color-accent);
 }
 
 .btn--icon {

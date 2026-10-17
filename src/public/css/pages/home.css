@@ -52,7 +52,10 @@
 .home-hero__container {
     position: relative;
     z-index: 2;
+    display: flex;
+    align-items: center;
     width: 100%;
+    height: 100%;
     max-width: var(--max-width);
     margin-inline: auto;
     padding-inline: var(--gutter);

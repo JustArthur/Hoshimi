@@ -51,7 +51,7 @@ $_hasAccess = MacGuard::hasAccess();
                         <a href="/historique/" class="navbar__link <?= str_starts_with($current_path, '/historique') ? 'is-active' : '' ?>">Historique</a>
                     </li>
                     <li>
-                        <a href="/wishboard/" class="navbar__link <?= str_starts_with($current_path, '/wishboard') ? 'is-active' : '' ?>">Wishboard</a>
+                        <a href="http://localhost:5055/" class="navbar__link" target="_blank">Wishboard</a>
                     </li>
 
                     <?php if ($_hasAccess) : ?>
@@ -64,12 +64,6 @@ $_hasAccess = MacGuard::hasAccess();
 
             <!-- Droite : search + random + profil -->
             <div class="navbar__right">
-                <button class="navbar__random-btn" id="navbar-random-btn" title="Média aléatoire" aria-label="Lancer un média aléatoire">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/>
-                        <polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/>
-                    </svg>
-                </button>
                 <div class="navbar__search">
                     <form class="search-bar" method="GET" action="/search/" role="search" aria-label="Rechercher">
                         <svg class="search-bar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -152,20 +146,6 @@ $_hasAccess = MacGuard::hasAccess();
 
             document.addEventListener('keydown', e => {
                 if (e.key === 'Escape') closeMenu();
-            });
-        }
-
-        // ── Bouton aléatoire ─────────────────────────────────────────────────
-        const randomBtn = document.getElementById('navbar-random-btn');
-        if (randomBtn) {
-            randomBtn.addEventListener('click', async () => {
-                randomBtn.classList.add('is-loading');
-                try {
-                    const data = await fetch('/api/random.php').then(r => r.json());
-                    if (data.ok) window.location.href = data.href;
-                } finally {
-                    randomBtn.classList.remove('is-loading');
-                }
             });
         }
 

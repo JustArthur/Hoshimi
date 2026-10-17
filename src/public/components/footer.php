@@ -27,7 +27,7 @@
                 <li><a href="/favoris/"    class="footer__link">Favoris</a></li>
                 <li><a href="/watchlist/"  class="footer__link">Watchlist</a></li>
                 <li><a href="/historique/" class="footer__link">Historique</a></li>
-                <li><a href="/wishboard/"  class="footer__link">Wishboard</a></li>
+                <li><a href="http://localhost:5055/" class="footer__link" target="_blank">Wishboard</a></li>
             </ul>
         </nav>
 

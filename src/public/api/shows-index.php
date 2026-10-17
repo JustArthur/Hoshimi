@@ -10,19 +10,18 @@ $body   = (string)file_get_contents('php://input');
 $input  = $body ? (json_decode($body, true) ?: []) : [];
 $wanted = array_flip(array_filter((array)($input['file_keys'] ?? []), 'is_string'));
 
-if (empty($wanted)) {
-    echo json_encode((object)[]);
-    exit;
-}
+$matchAll = empty($wanted);
 
 $out = [];
 
 foreach (['anime', 'serie', 'film'] as $type) {
     foreach (IndexManager::getAll($type) as $item) {
         $eps = $item['episodes'] ?? [];
-        $match = false;
-        foreach ($eps as $ep) {
-            if (isset($wanted[$ep['file_key']])) { $match = true; break; }
+        $match = $matchAll;
+        if (!$match) {
+            foreach ($eps as $ep) {
+                if (isset($wanted[$ep['file_key']])) { $match = true; break; }
+            }
         }
         if (!$match) continue;
 

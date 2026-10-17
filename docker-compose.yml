@@ -1,6 +1,6 @@
 # ============================================================
 #  HOSHIMI (星見) — Docker Compose
-#  Services : Nginx + PHP-FPM
+#  Services : Nginx + PHP-FPM + Radarr + Sonarr + Jellyseerr
 # ============================================================
 
 services:
@@ -45,6 +45,8 @@ services:
       - SERIES_PATH=${SERIES_PATH}
       - IMAGES_PATH=${IMAGES_PATH}
       - TMDB_API_KEY=${TMDB_API_KEY}
+      - JELLYFIN_URL=${JELLYFIN_URL}
+      - JELLYFIN_API_KEY=${JELLYFIN_API_KEY}
     command: >
       sh -c "
         run_scan() {
@@ -54,6 +56,7 @@ services:
           python3 /var/www/html/cli/fetch_metadata.py --type serie  --scan \"\${SERIES_PATH}\" || true;
           echo \"[\$\$(date '+%Y-%m-%d %H:%M:%S')] === Scan terminé — régénération index ===\";
           php /var/www/html/cli/regen-index.php || true;
+          php /var/www/html/cli/jellyfin-map.php || true;
         };
         run_scan;
         while true; do sleep 3600 && run_scan; done
@@ -76,10 +79,16 @@ services:
       - animes_data:/media/animes
       - films_data:/media/films
       - series_data:/media/series
+      - hoshimi_data:/var/www/html/data
+      - hoshimi_images:/var/www/html/public/images
     environment:
       - ANIMES_PATH=${ANIMES_PATH}
       - FILMS_PATH=${FILMS_PATH}
       - SERIES_PATH=${SERIES_PATH}
+      - IMAGES_PATH=${IMAGES_PATH}
+      - TMDB_API_KEY=${TMDB_API_KEY}
+      - JELLYFIN_URL=${JELLYFIN_URL}
+      - JELLYFIN_API_KEY=${JELLYFIN_API_KEY}
     command: sh /watcher.sh
     networks:
       - hoshimi_net
@@ -97,6 +106,8 @@ services:
       - ./docker/php/php.ini:/usr/local/etc/php/conf.d/custom.ini:ro
       - animes_data:/media/animes
       - series_data:/media/series
+      - hoshimi_data:/var/www/html/data
+      - hoshimi_images:/var/www/html/public/images
     environment:
       - ANIMES_PATH=${ANIMES_PATH}
       - SERIES_PATH=${SERIES_PATH}
@@ -129,6 +140,8 @@ services:
       - animes_data:/media/animes
       - films_data:/media/films
       - series_data:/media/series
+      - hoshimi_data:/var/www/html/data
+      - hoshimi_images:/var/www/html/public/images
     environment:
       - ANIMES_PATH=${ANIMES_PATH}
       - FILMS_PATH=${FILMS_PATH}
@@ -179,6 +192,153 @@ services:
       - ACCESS_TOKEN=${ACCESS_TOKEN}
       - TMDB_API_KEY=${TMDB_API_KEY}
       - LAN_HOST=${LAN_HOST}
+      - JELLYFIN_URL=${JELLYFIN_URL}
+      - JELLYFIN_API_KEY=${JELLYFIN_API_KEY}
+      - JELLYFIN_STREAMING_ENABLED=${JELLYFIN_STREAMING_ENABLED}
+    networks:
+      - hoshimi_net
+
+  # ============================================================
+  #  *ARR STACK — Radarr / Sonarr / Jellyseerr
+  # ============================================================
+
+  # --- Radarr (films) ---
+  radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    container_name: hoshimi_radarr
+    restart: unless-stopped
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Paris
+    volumes:
+      - radarr_config:/config
+      - films_data:/media/films
+      # Dossier de téléchargement partagé avec qBittorrent (même chemin des deux côtés)
+      - downloads_data:/downloads
+    ports:
+      - "7878:7878"
+    networks:
+      - hoshimi_net
+
+  # --- Sonarr (séries/animes) ---
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:latest
+    container_name: hoshimi_sonarr
+    restart: unless-stopped
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Paris
+    volumes:
+      - sonarr_config:/config
+      - animes_data:/media/animes
+      - series_data:/media/series
+      - downloads_data:/downloads
+    ports:
+      - "8989:8989"
+    networks:
+      - hoshimi_net
+
+  # --- Prowlarr (gestion centralisée des indexeurs → push vers Radarr/Sonarr) ---
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:latest
+    container_name: hoshimi_prowlarr
+    restart: unless-stopped
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Paris
+    volumes:
+      - prowlarr_config:/config
+    ports:
+      - "9696:9696"
+    networks:
+      - hoshimi_net
+
+  # --- Jellyfin (moteur de streaming Hoshimi + backend Jellyseerr) ---
+  jellyfin:
+    image: jellyfin/jellyfin:latest
+    container_name: hoshimi_jellyfin
+    restart: unless-stopped
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Paris
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    volumes:
+      - jellyfin_config:/config
+      - jellyfin_cache:/cache
+      - animes_data:/media/animes:ro
+      - films_data:/media/films:ro
+      - series_data:/media/series:ro
+    ports:
+      - "8096:8096"
+    networks:
+      - hoshimi_net
+
+  # --- Seerr (ex-Jellyseerr — requêtes utilisateurs → Radarr/Sonarr) ---
+  jellyseerr:
+    image: seerr/seerr:latest
+    container_name: hoshimi_jellyseerr
+    init: true
+    restart: unless-stopped
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Paris
+    volumes:
+      - jellyseerr_config:/app/config
+    ports:
+      - "5055:5055"
+    networks:
+      - hoshimi_net
+    depends_on:
+      - radarr
+      - sonarr
+      - jellyfin
+
+  # --- qBittorrent + VPN ProtonVPN intégrés (binhex) ---
+  # Remplace Gluetun + qBittorrent séparés : le VPN, le kill-switch et le
+  # port forwarding NAT-PMP sont gérés en interne par l'image, sans script
+  # externe à maintenir.
+  qbittorrentvpn:
+    image: binhex/arch-qbittorrentvpn:latest
+    container_name: hoshimi_qbittorrentvpn
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+    environment:
+      - VPN_ENABLED=yes
+      - VPN_PROV=protonvpn
+      - VPN_CLIENT=openvpn
+      - VPN_USER=${PROTON_OVPN_USER}+pmp
+      - VPN_PASS=${PROTON_OVPN_PASS}
+      - STRICT_PORT_FORWARD=yes
+      - ENABLE_PRIVOXY=no
+      - LAN_NETWORK=192.168.0.0/24
+      - NAME_SERVERS=1.1.1.1,1.0.0.1
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+      - WEBUI_PORT=8081
+      - TZ=Europe/Paris
+      - DEBUG=false
+    volumes:
+      - qbittorrent_config:/config
+      - downloads_data:/downloads
+    ports:
+      - "8081:8081"
+      - "6881:6881"
+      - "6881:6881/udp"
     networks:
       - hoshimi_net
 
@@ -211,11 +371,29 @@ volumes:
       o: bind
       device: "Y:\\Series"
 
-  # Données persistantes (index JSON, wishboard) — géré par Docker, hors projet
+  # Données persistantes (index JSON) — géré par Docker, hors projet
   hoshimi_data:
 
   # Images générées (thumbnails, covers) — géré par Docker, hors projet
   hoshimi_images:
+
+  # Config Radarr/Sonarr/Jellyseerr/Jellyfin/qBittorrent — géré par Docker, hors projet
+  radarr_config:
+  sonarr_config:
+  jellyseerr_config:
+  qbittorrent_config:
+  jellyfin_config:
+  jellyfin_cache:
+  prowlarr_config:
+
+  # Dossier de téléchargement partagé (torrents en cours + terminés)
+  # ⚠️ À adapter : pointe idéalement vers un dossier réel sur Y:\ (voir note ci-dessous)
+  downloads_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: "Y:\\Downloads_qBitTorrent"
 
 # ============================================================
 #  RÉSEAU

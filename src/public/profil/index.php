@@ -385,9 +385,9 @@ $_hasAccess = MacGuard::hasAccess();
                 const timeAgo = iso => {
                     const d = Math.floor((Date.now() - new Date(iso)) / 1000);
                     if (d < 60) return 'À l\'instant';
-                    if (d < 3600) return Math.floor(d/60) + ' min';
-                    if (d < 86400) return Math.floor(d/3600) + ' h';
-                    return Math.floor(d/86400) + ' j';
+                    if (d < 3600) return 'Il y a ' + Math.floor(d/60) + ' min';
+                    if (d < 86400) return 'Il y a ' + Math.floor(d/3600) + ' h';
+                    return 'Il y a ' + Math.floor(d/86400) + ' j';
                 };
                 const listEl = document.getElementById('profil-recent-list');
                 listEl.innerHTML = recent.map(([key, p]) => {
@@ -606,7 +606,7 @@ $_hasAccess = MacGuard::hasAccess();
             const resp = await fetch('/api/backup/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
             if (!resp.ok) throw new Error('Erreur serveur');
             const { token } = await resp.json();
-            const url = LAN_ORIGIN + '/profil/?restore_token=' + token;
+            const url = LAN_ORIGIN + ':8080/profil/?restore_token=' + token;
             qrUrl.textContent = url;
             const qr = qrcode(0, 'M'); qr.addData(url); qr.make();
             const img = document.createElement('img');

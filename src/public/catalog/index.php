@@ -84,7 +84,10 @@ match ($sortMode) {
     'year'     => usort($pool, fn($a, $b) => ($b['year']  ?? 0) <=> ($a['year']  ?? 0)),
     'year_asc' => usort($pool, fn($a, $b) => ($a['year']  ?? 0) <=> ($b['year']  ?? 0)),
     'z_a'      => usort($pool, fn($a, $b) => $sagaSort($a, $b, true)),
-    'recent'   => usort($pool, fn($a, $b) => strcmp($b['updated_at'] ?? '', $a['updated_at'] ?? '')),
+    'recent'   => usort($pool, fn($a, $b) => strcmp(
+        $b['last_episode_at'] ?? $b['updated_at'] ?? '',
+        $a['last_episode_at'] ?? $a['updated_at'] ?? ''
+    )),
     default    => usort($pool, fn($a, $b) => $sagaSort($a, $b)),
 };
 

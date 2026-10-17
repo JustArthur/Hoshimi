@@ -417,6 +417,7 @@ class AnimeScanner
     // ----------------------------------------------------------------
     private function scanEpisodes(string $dir): array
     {
+        clearstatcache(true, $dir);
         $episodes = [];
         $files    = scandir($dir) ?: [];
 

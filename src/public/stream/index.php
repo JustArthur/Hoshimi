@@ -5,8 +5,9 @@
 //  MKV/AVI   : transcodage FFmpeg à la volée
 //              (audio → AAC, vidéo copiée) → fMP4 streamable
 // ============================================================
-
 declare(strict_types=1);
+
+require_once __DIR__ . '/../../app/Services/MediaProbe.php';
 
 $allowedRoots = [
     $_ENV['ANIMES_PATH'] ?? '/media/animes',
@@ -38,10 +39,21 @@ if (!in_array($ext, ['mp4', 'mkv', 'webm', 'avi', 'm4v'], true)) {
     exit;
 }
 
+// Piste audio demandée (index relatif, cf. `-map 0:a:N`)
+$audioTracks = MediaProbe::probeAudioTracks($realPath);
+$audioIdx    = isset($_GET['audio']) ? (int) $_GET['audio'] : 0;
+if ($audioIdx < 0 || $audioIdx >= count($audioTracks)) {
+    $audioIdx = 0;
+}
+
+// Plusieurs pistes audio → on force le transcodage pour pouvoir choisir la piste
+// (le passthrough direct ne permet pas de sélectionner une piste côté serveur)
+$forceTranscode = count($audioTracks) > 1 && $audioIdx > 0;
+
 // ----------------------------------------------------------------
 //  MP4 / WebM / M4V  →  Range requests directs
 // ----------------------------------------------------------------
-if (in_array($ext, ['mp4', 'webm', 'm4v'], true)) {
+if (in_array($ext, ['mp4', 'webm', 'm4v'], true) && !$forceTranscode) {
 
     $fileSize = filesize($realPath);
     $start    = 0;
@@ -116,22 +128,23 @@ if (isset($_SERVER['HTTP_RANGE']) && $fileSize > 0) {
     }
 }
 
-// Sélection des meilleures pistes : première vidéo + meilleure audio
-// -map 0:v:0 -map 0:a:0  →  piste vidéo 0, piste audio 0 (priorité)
+// Sélection des pistes : première vidéo + piste audio choisie (ou 1re par défaut)
+// -map 0:v:0 -map 0:a:N  →  piste vidéo 0, piste audio N
 $ssArg = $seekSec > 0 ? sprintf('-ss %.3f', $seekSec) : '';
 
 $cmd = sprintf(
     'ffmpeg -hide_banner -loglevel error'
     . ' %s'                                    // seek avant l'input (rapide)
     . ' -i %s'
-    . ' -map 0:v:0 -map 0:a:0'                // 1re piste vidéo + audio
+    . ' -map 0:v:0 -map 0:a:%d'                // 1re piste vidéo + piste audio choisie
     . ' -c:v copy'                             // vidéo sans re-encodage
     . ' -c:a aac -b:a 192k -ac 2'             // audio → AAC stéréo
     . ' -f mp4'
     . ' -movflags frag_keyframe+empty_moov+default_base_moof'
     . ' pipe:1 2>/dev/null',
     $ssArg,
-    escapeshellarg($realPath)
+    escapeshellarg($realPath),
+    $audioIdx
 );
 
 // Vider tout buffer PHP avant de streamer

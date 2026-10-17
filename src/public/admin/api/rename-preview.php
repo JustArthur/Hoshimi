@@ -60,11 +60,18 @@ function scanVideoFiles(string $dir, array $ext): array {
     return $files;
 }
 
-function parseEpFilename(string $filename): array {
+function parseSeasonFromDir(string $dir): ?int {
+    if (preg_match('/(?:season|saison|s)\s*0*(\d{1,2})\b/i', basename($dir), $m)) {
+        return (int)$m[1];
+    }
+    return null;
+}
+
+function parseEpFilename(string $filename, ?int $dirSeason): array {
     $name = pathinfo($filename, PATHINFO_FILENAME);
-    $season = 1; $episode = 0;
+    $season = $dirSeason ?? 1; $episode = 0;
     if (preg_match('/S(\d{1,2})E(\d{1,3})/i', $name, $m)) {
-        $season = (int)$m[1]; $episode = (int)$m[2];
+        $season = $dirSeason ?? (int)$m[1]; $episode = (int)$m[2];
     } elseif (preg_match('/(?:EP?|E)(\d{1,3})/i', $name, $m)) {
         $episode = (int)$m[1];
     } elseif (preg_match('/(?:^|\s|-)(\d{1,3})(?:\s|-|$)/', $name, $m)) {
@@ -79,15 +86,38 @@ function sanitizeFilename(string $s): string {
     return trim($s);
 }
 
-function applyTemplate(string $tpl, string $show, int $s, int $e, ?string $title): string {
+// Extrait qualité/langue du nom de fichier ORIGINAL (mêmes règles que FilmScanner)
+function parseQualityLang(string $name): array {
+    $quality  = null;
+    $language = null;
+
+    if (preg_match('/\b(4K|2160p|1080p|720p|480p)\b/i', $name, $m)) {
+        $quality = strtolower($m[1]);
+    }
+
+    if (preg_match_all('/\b(VOSTFR|VOSTA|VOSTEN|MULTI|DUAL|VF|VO)\b/i', $name, $ms)) {
+        $priority = ['VOSTFR' => 6, 'VOSTA' => 5, 'VOSTEN' => 4, 'MULTI' => 3, 'DUAL' => 3, 'VF' => 2, 'VO' => 1];
+        $tags = array_map('strtoupper', $ms[1]);
+        usort($tags, fn($a, $b) => ($priority[$b] ?? 0) <=> ($priority[$a] ?? 0));
+        $language = implode(' ', array_unique($tags));
+    }
+
+    return ['quality' => $quality, 'language' => $language];
+}
+
+function applyTemplate(string $tpl, string $show, int $s, int $e, ?string $title, ?string $quality, ?string $lang): string {
     $padS = str_pad((string)$s, 2, '0', STR_PAD_LEFT);
     $padE = str_pad((string)$e, 2, '0', STR_PAD_LEFT);
     $result = $tpl;
-    $result = str_replace('{show}',  sanitizeFilename($show), $result);
-    $result = str_replace('{s}',     $padS,                   $result);
-    $result = str_replace('{e}',     $padE,                   $result);
-    $result = str_replace('{title}', $title ? sanitizeFilename($title) : "Episode $padE", $result);
-    return $result;
+    $result = str_replace('{show}',    sanitizeFilename($show), $result);
+    $result = str_replace('{s}',       $padS,                   $result);
+    $result = str_replace('{e}',       $padE,                   $result);
+    $result = str_replace('{title}',   $title ? sanitizeFilename($title) : "Episode $padE", $result);
+    $result = str_replace('{quality}', $quality ?? '',          $result);
+    $result = str_replace('{lang}',    $lang ?? '',             $result);
+    // Nettoie les espaces doubles laissés par un token vide (ex: {quality} absent)
+    $result = preg_replace('/\s+/', ' ', $result);
+    return trim($result);
 }
 
 $template = $_GET['template'] ?? '{show} S{s}E{e} {title}';
@@ -95,14 +125,18 @@ $files    = scanVideoFiles($dirPath, $VIDEO_EXT);
 sort($files);
 
 $rows = [];
+$seasonCounters = [];
 foreach ($files as $fullPath) {
     $filename  = basename($fullPath);
     $ext       = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
-    $parsed    = parseEpFilename($filename);
+    $dirSeason = parseSeasonFromDir(dirname($fullPath));
+    $parsed    = parseEpFilename($filename, $dirSeason);
     $s         = $parsed['season'];
-    $e         = $parsed['episode'];
+    $seasonCounters[$s] = ($seasonCounters[$s] ?? 0) + 1;
+    $e         = $seasonCounters[$s];
     $tmdbTitle = $tmdbIndex[$s][$e] ?? null;
-    $suggested = applyTemplate($template, $showTitle, $s, $e, $tmdbTitle) . '.' . $ext;
+    $ql        = parseQualityLang($filename);
+    $suggested = applyTemplate($template, $showTitle, $s, $e, $tmdbTitle, $ql['quality'], $ql['language']) . '.' . $ext;
 
     $rows[] = [
         'path'      => $fullPath,
@@ -111,6 +145,8 @@ foreach ($files as $fullPath) {
         'season'    => $s,
         'episode'   => $e,
         'tmdb_title'=> $tmdbTitle,
+        'quality'   => $ql['quality'],
+        'lang'      => $ql['language'],
         'suggested' => $suggested,
         'changed'   => $filename !== $suggested,
     ];

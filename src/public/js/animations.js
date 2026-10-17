@@ -14,6 +14,7 @@
         '.profil-storage',
         '.profil-avatar-card',
         '.profil-stats',
+        '.profil-top-genres',
         '.fav-hero__stats',
         '.fav-hero__title-row',
         '.hist-card',

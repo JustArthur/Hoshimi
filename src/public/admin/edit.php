@@ -143,7 +143,7 @@ function selectField(string $key, array $meta, array $options): string
         </a>
         <span class="admin-topbar__title">
             <?= htmlspecialchars($title) ?>
-            <span class="badge badge--type" style="margin-left:8px;vertical-align:middle"><?= $typeLabel ?></span>
+            <span class="badge badge--type"><?= $typeLabel ?></span>
         </span>
         <div class="admin-topbar__actions">
             <div class="adm-act-dd" id="adm-act-dd">

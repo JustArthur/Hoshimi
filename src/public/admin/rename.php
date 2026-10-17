@@ -141,8 +141,8 @@ usort($allMedia, fn($a, $b) => strcasecmp($a['title'], $b['title']));
                         <label class="rename-config-label" for="rename-template">Template de nommage</label>
                         <div class="rename-template-row">
                             <input id="rename-template" class="rename-template-input" type="text"
-                                   value="{show} S{s}E{e} {title}"
-                                   placeholder="{show} S{s}E{e} {title}"
+                                   value="{show} S{s}E{e} {quality} {lang}"
+                                   placeholder="{show} S{s}E{e} {quality} {lang}"
                                    spellcheck="false">
                             <button id="btn-load" class="rename-load-btn">
                                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg>
@@ -155,6 +155,8 @@ usort($allMedia, fn($a, $b) => strcasecmp($a['title'], $b['title']));
                             <button class="rename-chip" type="button" data-var="S{s}">S{s}</button>
                             <button class="rename-chip" type="button" data-var="E{e}">E{e}</button>
                             <button class="rename-chip" type="button" data-var="{title}">{title}</button>
+                            <button class="rename-chip" type="button" data-var="{quality}">{quality}</button>
+                            <button class="rename-chip" type="button" data-var="{lang}">{lang}</button>
                         </div>
                     </div>
 
@@ -249,6 +251,7 @@ usort($allMedia, fn($a, $b) => strcasecmp($a['title'], $b['title']));
         let currentRows  = [];
         let selectedItem = null;
         let autoTimer    = null;
+        let checkedByPath = new Map(); // persiste les cases cochées/décochées manuellement entre reloads (changement de template)
 
         /* ─ Filtre liste ─────────────────────────────────────────────────── */
         mediaFilter.addEventListener('input', () => {
@@ -285,6 +288,7 @@ usort($allMedia, fn($a, $b) => strcasecmp($a['title'], $b['title']));
             placeholderEl.hidden = true;
             configCard.hidden = false;
 
+            checkedByPath.clear();
             loadPreview();
         });
 
@@ -348,6 +352,9 @@ usort($allMedia, fn($a, $b) => strcasecmp($a['title'], $b['title']));
         checkAll.addEventListener('change', () => {
             document.querySelectorAll('.rename-check:not(:disabled)').forEach(cb => {
                 cb.checked = checkAll.checked;
+                const idx = parseInt(cb.dataset.idx);
+                const row = currentRows[idx];
+                if (row) checkedByPath.set(row.path, cb.checked);
             });
             updateAllSeasonChecks();
             updateFooterCount();
@@ -413,10 +420,11 @@ usort($allMedia, fn($a, $b) => strcasecmp($a['title'], $b['title']));
                         ? `<span class="rename-tmdb-dot rename-tmdb-dot--ok" title="Titre TMDB : ${esc(r.tmdb_title)}"></span>`
                         : `<span class="rename-tmdb-dot rename-tmdb-dot--miss" title="Aucun titre TMDB"></span>`;
 
+                    const isChecked = checkedByPath.has(r.path) ? checkedByPath.get(r.path) : r.changed;
                     const checkboxCell = `<label class="hoshi-checkbox-label" style="justify-content:center;">
                         <span class="hoshi-checkbox">
                             <input type="checkbox" class="rename-check" data-idx="${idx}"
-                                ${r.changed ? 'checked' : ''} ${!r.changed ? 'disabled' : ''}>
+                                ${isChecked ? 'checked' : ''} ${!r.changed ? 'disabled' : ''}>
                             <span class="hoshi-checkbox__box"></span>
                         </span>
                     </label>`;
@@ -484,14 +492,22 @@ usort($allMedia, fn($a, $b) => strcasecmp($a['title'], $b['title']));
                     const season = seasonCheck.closest('.rename-season');
                     season.querySelectorAll('.rename-check:not(:disabled)').forEach(cb => {
                         cb.checked = seasonCheck.checked;
+                        rememberCheck(cb);
                     });
-                } else {
+                } else if (e.target.classList.contains('rename-check')) {
                     // Checkbox d'épisode → met à jour le checkbox de la saison parente
+                    rememberCheck(e.target);
                     const season = e.target.closest('.rename-season');
                     if (season) updateSeasonCheckState(season);
                 }
                 updateFooterCount();
             });
+
+            function rememberCheck(cb) {
+                const idx = parseInt(cb.dataset.idx);
+                const row = currentRows[idx];
+                if (row) checkedByPath.set(row.path, cb.checked);
+            }
 
             // État initial des checkboxes de saison
             seasonsEl.querySelectorAll('.rename-season').forEach(updateSeasonCheckState);

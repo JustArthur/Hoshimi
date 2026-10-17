@@ -25,8 +25,6 @@
 
         const icon = type === 'film' ? lc('clapperboard', 36) : type === 'serie' ? lc('tv', 36) : lc('tv-2', 36);
 
-        const typeLabel = type === 'film' ? 'Film' : type === 'serie' ? 'Série' : 'Anime';
-
         const card = document.createElement('a');
         card.href      = url;
         card.className = 'card';
@@ -40,7 +38,7 @@
                 <div class="card__body">
                     <div class="card__title">${esc(fav.title)}</div>
                     <div class="card__meta">
-                        <span class="card__meta-badge">${typeLabel}</span>
+                        ${fav.year ? `<span class="card__meta-year">${fav.year}</span>` : ''}
                     </div>
                 </div>
             </div>`;

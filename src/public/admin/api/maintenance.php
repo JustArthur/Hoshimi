@@ -70,12 +70,4 @@ if ($action === 'purge_search') {
     exit;
 }
 
-// ── Vider le wishboard ───────────────────────────────────────────────────────
-if ($action === 'clear_wishboard') {
-    $file = __DIR__ . '/../../../data/wishboard.json';
-    $ok   = file_put_contents($file, '[]') !== false;
-    echo json_encode(['ok' => $ok]);
-    exit;
-}
-
 echo json_encode(['ok' => false, 'error' => 'action inconnue']);

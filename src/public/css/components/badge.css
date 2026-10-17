@@ -9,7 +9,8 @@
     border-radius: var(--radius-sm);
     font-size: 0.72rem;
     font-weight: 600;
-    background: var(--color-bg-elevated);
+    background: var(--color-border-soft);
+    backdrop-filter: blur(3px);
     border: 1px solid var(--color-border);
     color: var(--color-text-soft);
     letter-spacing: 0.02em;
@@ -22,13 +23,9 @@ a.badge {
     cursor: pointer;
 }
 
-.badge:not(.badge--score-hero):not(.badge--trending):not(.badge--type):not(.badge--soon):hover {
+.badge:not(:where(.badge--score-hero, .badge--trending, .badge--type, .badge--soon, .badge--lang)):hover {
     border-color: rgba(255, 255, 255, 0.2);
     color: var(--color-text);
-}
-
-.badge.badge--soon:hover {
-    border-color: var(--color-accent);
 }
 
 /* ── Filtre actif ────────────────────────────────────────────────────────── */
@@ -113,17 +110,19 @@ a.badge {
 
 /* Type (Film / Anime / Série) */
 .badge--type {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    color: rgba(255, 255, 255, 0.75);
-    backdrop-filter: blur(6px);
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
     font-size: 0.68rem;
-    font-weight: 600;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    gap: 5px;
+    align-items: center;
+    background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+    color: var(--color-accent);
+    border: 1px solid color-mix(in srgb, var(--color-accent) 40%, transparent);
+    width: max-content;
 }
 
 /* ── À venir (hero & card) ───────────────────────────────────────────────── */
@@ -131,17 +130,8 @@ a.badge {
 .badge--soon {
     display: inline-flex;
     align-items: center;
-    background: color-mix(in srgb, var(--hero-accent, var(--color-accent)) 25%, transparent);
-    border: 1px solid color-mix(in srgb, var(--hero-accent, var(--color-accent)) 50%, transparent);
-    color: var(--color-accent);
     letter-spacing: 0.08em;
     text-transform: uppercase;
-}
-
-.badge--soon:hover {
-    background: color-mix(in srgb, var(--hero-accent, var(--color-accent)) 35%, transparent);
-    border-color: var(--hero-accent, var(--color-accent));
-    color: var(--color-accent);
 }
 
 /* ── Qualité vidéo (720p, 1080p, 4K…) ───────────────────────────────────── */

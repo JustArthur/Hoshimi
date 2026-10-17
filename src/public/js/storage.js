@@ -28,7 +28,9 @@ window.lc = (function () {
         'tv':             '<rect width="20" height="15" x="2" y="7" rx="2" ry="2"/><polyline points="17 2 12 7 7 2"/>',
         'tv-2':           '<path d="M7 21h10"/><rect width="20" height="14" x="2" y="3" rx="2"/>',
         'sparkles':       '<path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/>',
-        'eye-off':        '<path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/>',
+        'plus':           '<path d="M5 12h14"/><path d="M12 5v14"/>',
+        'eye':'<path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/>',
+        'eye-off':'<path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/>',
         'user':           '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
         'heart':          '<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>',
         'bookmark':       '<path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/>',
@@ -87,7 +89,7 @@ const HoshimiStorage = (() => {
     // ================================================================
     const Progress = {
 
-        // Sauvegarde la progression d'un épisode (max 50 entrées — purge les plus anciennes)
+        // Sauvegarde la progression d'un épisode (max 2000 entrées — purge les plus anciennes)
         save(fileKey, position, duration, completed = false) {
             const all = read(KEYS.progress);
             const isCompleted = completed || (duration > 0 && position / duration >= 0.92);
@@ -98,13 +100,25 @@ const HoshimiStorage = (() => {
                 updated_at: new Date().toISOString(),
             };
             const entries = Object.entries(all);
-            if (entries.length > 50) {
+            if (entries.length > 2000) {
                 entries.sort((a, b) => (a[1].updated_at ?? '') < (b[1].updated_at ?? '') ? -1 : 1);
-                const trimmed = Object.fromEntries(entries.slice(-50));
+                const trimmed = Object.fromEntries(entries.slice(-2000));
                 write(KEYS.progress, trimmed);
             } else {
                 write(KEYS.progress, all);
             }
+        },
+
+        // Marque une liste d'épisodes comme vus (ou annule : supprime leur progression)
+        setSeen(fileKeys, seen) {
+            const all = read(KEYS.progress);
+            const now = new Date().toISOString();
+            fileKeys.forEach(k => {
+                if (!seen) { delete all[k]; return; }
+                const dur = all[k]?.duration ?? 0;
+                all[k] = { position: dur, duration: dur, completed: true, updated_at: now };
+            });
+            write(KEYS.progress, all);
         },
 
         // Récupère la progression d'un épisode

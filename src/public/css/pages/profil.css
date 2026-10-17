@@ -53,9 +53,8 @@
 .profil-avatar {
     width: 52px;
     height: 52px;
-    border-radius: 50%;
+    border-radius: var(--radius-sm);
     background: var(--color-accent-dim);
-    border: 2px solid var(--color-accent);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -71,21 +70,17 @@
     transition: border-color 0.15s;
 }
 
-.profil-avatar--btn:hover {
-    border-color: var(--color-text);
-}
-
 .profil-avatar__img {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    border-radius: 50%;
+    border-radius: var(--radius-sm);
 }
 
 .profil-avatar__edit-hint {
     position: absolute;
     inset: 0;
-    border-radius: 50%;
+    border-radius: var(--radius-sm);
     background: rgba(0, 0, 0, 0.55);
     display: flex;
     align-items: center;
@@ -121,7 +116,7 @@
     color: var(--color-text-muted);
     background: var(--color-border-soft);
     padding: 2px 7px;
-    border-radius: 10px;
+    border-radius: var(--radius-sm);
     letter-spacing: .02em;
     width: fit-content;
 }
@@ -876,8 +871,6 @@ a.profil-stat:hover {
     gap: 20px;
 }
 
-.avatar-anime-section {}
-
 .avatar-anime-title {
     font-size: 0.65rem;
     font-weight: 700;
@@ -1063,9 +1056,9 @@ a.profil-stat:hover {
 
 /* Navbar avatar */
 .navbar__profil-avatar {
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
+    width: 31px;
+    height: 31px;
+    border-radius: var(--radius-sm);
     object-fit: cover;
     display: block;
 }

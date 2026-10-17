@@ -138,7 +138,7 @@ MacGuard::protect();
 
     <script>
     (() => {
-        const TYPE_COLORS = { anime: '#60a5fa', film: '#c8a468', serie: '#a78bfa' };
+        const TYPE_COLORS = { anime: 'var(--color-anime)', film: 'var(--color-film)', serie: 'var(--color-serie)' };
 
         function esc(s) {
             return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -248,7 +248,7 @@ MacGuard::protect();
             if (!data.results.length) { setOk(body, 'Aucun média trouvé.'); return; }
 
             const max = data.results[0].size;
-            const TYPE_COLORS = { anime: '#60a5fa', film: '#c8a468', serie: '#a78bfa' };
+            const TYPE_COLORS = { anime: 'var(--color-anime)', film: 'var(--color-film)', serie: 'var(--color-serie)' };
             const types = [...new Set(data.results.map(r => r.type))];
 
             let filterBtns = '';

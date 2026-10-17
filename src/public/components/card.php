@@ -58,8 +58,7 @@ function render_card(array $item, string $type, array $opts = []): string
         ? ($item['title'] ?? '')
         : (($item['title_english'] ?? null) ?: ($item['title'] ?? ''));
 
-    // ── Badge / icon ──────────────────────────────────────────────────────────
-    $badge = match ($type) { 'film' => 'Film', 'serie' => 'Série', default => 'Anime' };
+    // ── Icon ──────────────────────────────────────────────────────────────────
     $icon  = match ($type) { 'film' => lc('clapperboard', 36), 'serie' => lc('tv', 36), default => lc('tv-2', 36) };
 
     // ── Poster ────────────────────────────────────────────────────────────────
@@ -69,11 +68,32 @@ function render_card(array $item, string $type, array $opts = []): string
         : '<div class="no-cover"><div class="no-cover__content"><span class="no-cover__icon">' . $icon . '</span></div></div>';
 
     // ── Badges (score / soon / trending) ─────────────────────────────────────
-    $scoreBadge = $score
-        ? '<div class="card__score">' . lc('star', 11, 'card__score-star') . $score . '</div>'
+    // Le badge « Déjà vu » est affiché côté client (js/card-seen.js) d'après la progression locale
+    $epKeys = implode(',', array_column($item['episodes'] ?? [], 'file_key'));
+    $seenBadge = $epKeys !== ''
+        ? '<button type="button" class="card__seen" data-card-seen title="Marquer comme vu" aria-pressed="false">' . lc('eye', 14) . '</button>'
         : '';
+    static $seenScriptEmitted = false;
+    $seenScript = '';
+    if (!$seenScriptEmitted) {
+        $seenScriptEmitted = true;
+        $seenScript = '<script src="/js/card-seen.js" defer></script>';
+    }
     $noFile = ($item['episodes_local'] ?? 1) === 0;
     $unavailable = $opts['unavailable'] ?? false;
+
+    // Bouton watchlist (+) — même clé/meta que la page détail (slug, HoshimiStorage.Watchlist)
+    $wlBadge = '';
+    if (!$unavailable && !empty($item['slug'])) {
+        $wlMeta = json_encode([
+            'title'     => $title,
+            'cover_url' => $item['cover_url'] ?? '',
+            'type'      => $type,
+            'year'      => (int)($item['year'] ?? 0) ?: null,
+            'genres'    => array_values($item['genres'] ?? []),
+        ], JSON_UNESCAPED_UNICODE);
+        $wlBadge = '<button type="button" class="card__wl" data-card-wl data-wl-slug="' . htmlspecialchars((string)$item['slug']) . '" data-wl-meta="' . htmlspecialchars($wlMeta) . '" title="Ajouter à la watchlist" aria-pressed="false">' . lc('plus', 14) . '</button>';
+    }
     $soonBadge = $unavailable
         ? '<div class="card__badge--soon card__badge--unavailable">Non Disponible</div>'
         : ($noFile ? '<div class="card__badge--soon">Prochainement</div>' : '');
@@ -84,19 +104,25 @@ function render_card(array $item, string $type, array $opts = []): string
     // ── Lang badge ────────────────────────────────────────────────────────────
     $langHtml = '';
     $lang = $item['main_language'] ?? null;
-    if ($lang) {
-        static $lmap = ['VOSTFR' => 'vostfr', 'VOSTA' => 'vostfr', 'VOSTEN' => 'vostfr', 'VF' => 'vf', 'MULTI' => 'multi', 'DUAL' => 'multi', 'VO' => 'vo'];
-        $tags = array_unique(array_filter(array_map('trim', explode(' ', strtoupper($lang)))));
-        $spans = implode('', array_map(function($t) use ($lmap) {
-            $cls = $lmap[$t] ?? null;
-            return '<span class="card__lang' . ($cls ? ' card__lang--' . $cls : '') . '">' . htmlspecialchars($t) . '</span>';
-        }, $tags));
-        $langHtml = $spans ? '<div class="card__langs">' . $spans . '</div>' : '';
-    }
+    // if ($lang) {
+    //     static $lmap = ['VOSTFR' => 'vostfr', 'VOSTA' => 'vostfr', 'VOSTEN' => 'vostfr', 'VF' => 'vf', 'MULTI' => 'multi', 'DUAL' => 'multi', 'VO' => 'vo'];
+    //     $tags = array_unique(array_filter(array_map('trim', explode(' ', strtoupper($lang)))));
+    //     $spans = implode('', array_map(function($t) use ($lmap) {
+    //         $cls = $lmap[$t] ?? null;
+    //         return '<span class="card__lang' . ($cls ? ' card__lang--' . $cls : '') . '">' . htmlspecialchars($t) . '</span>';
+    //     }, $tags));
+    //     $langHtml = $spans ? '<div class="card__langs">' . $spans . '</div>' : '';
+    // }
 
     // ── Year ──────────────────────────────────────────────────────────────────
     $yearHtml = ($item['year'] ?? null)
         ? '<span class="card__meta-year">' . $item['year'] . '</span>'
+        : '';
+
+    // ── Score (« 2020 · ★ 7.2 ») ──────────────────────────────────────────────
+    $scoreHtml = $score
+        ? ($yearHtml ? '<span class="card__meta-sep">·</span>' : '')
+            . '<span class="card__meta-score">' . lc('star', 10, 'card__meta-star') . $score . '</span>'
         : '';
 
     // ── Match genres (suggestions) ────────────────────────────────────────────
@@ -112,34 +138,23 @@ function render_card(array $item, string $type, array $opts = []): string
         $dataAttrs .= ' data-' . htmlspecialchars($k) . '="' . htmlspecialchars((string) $v) . '"';
     }
 
-    // ── Bouton créer dossier ──────────────────────────────────────────────────
-    $createBtn = '';
-    if (!empty($opts['create_folder'])) {
-        $cf = $opts['create_folder'];
-        $createBtn = '<button class="card__create-btn"'
-            . ' data-tmdb-id="' . (int)($cf['tmdb_id'] ?? 0) . '"'
-            . ' data-title="' . htmlspecialchars($cf['title'] ?? $title) . '"'
-            . ' data-year="' . (int)($cf['year'] ?? ($item['year'] ?? 0)) . '"'
-            . ' title="Créer le dossier">'
-            . '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>'
-            . ' Créer le dossier'
-            . '</button>';
-    }
-
     $cardClass = 'card' . ($unavailable ? ' card--unavailable' : '');
 
-    return '<a href="' . htmlspecialchars($href) . '" class="' . $cardClass . '" data-type="' . htmlspecialchars($type) . '"' . $dataAttrs . '>'
+    $keysAttr = $epKeys !== '' ? ' data-ep-keys="' . htmlspecialchars($epKeys) . '"' : '';
+
+    return $seenScript . '<a href="' . htmlspecialchars($href) . '" class="' . $cardClass . '" data-type="' . htmlspecialchars($type) . '"' . $keysAttr . $dataAttrs . '>'
         . '<div class="card__media">'
             . $posterHtml
             . '<div class="card__overlay"></div>'
             . $trendingBadge
-            . $scoreBadge
+            . $wlBadge
+            . $seenBadge
             . '<div class="card__play"><div class="card__play-btn">' . lc('play', 16) . '</div></div>'
             . '<div class="card__body">'
                 . '<div class="card__title">' . htmlspecialchars($title) . '</div>'
                 . '<div class="card__meta">'
-                    . '<span class="card__meta-badge">' . $badge . '</span>'
                     . $yearHtml
+                    . $scoreHtml
                 . '</div>'
                 . $matchHtml
                 . ($langHtml || $soonBadge
@@ -147,6 +162,5 @@ function render_card(array $item, string $type, array $opts = []): string
                     : '')
             . '</div>'
         . '</div>'
-        . $createBtn
     . '</a>';
 }

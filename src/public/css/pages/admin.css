@@ -379,20 +379,35 @@
 .dash-type-chip__n {
     font-weight: 700;
     font-variant-numeric: tabular-nums;
-    color: var(--color-text);
 }
 
-.dash-type-chip__label {
-    color: var(--color-text-muted);
+.dash-type-chip--anime .dash-type-chip__n { color: var(--color-anime); }
+.dash-type-chip--film .dash-type-chip__n { color: var(--color-film); }
+.dash-type-chip--serie .dash-type-chip__n { color: var(--color-serie); }
+.dash-type-chip--total .dash-type-chip__n { color: var(--color-accent); }
+
+.dash-type-chip--anime {
+    border-color: color-mix(in srgb, var(--color-anime) 30%, transparent);
+    background: color-mix(in srgb, var(--color-anime) 10%, transparent);
+    color: var(--color-anime);
+}
+
+.dash-type-chip--film {
+    border-color: color-mix(in srgb, var(--color-film) 30%, transparent);
+    background: color-mix(in srgb, var(--color-film) 10%, transparent);
+    color: var(--color-film);
+}
+
+.dash-type-chip--serie {
+    border-color: color-mix(in srgb, var(--color-serie) 30%, transparent);
+    background: color-mix(in srgb, var(--color-serie) 10%, transparent);
+    color: var(--color-serie);
 }
 
 .dash-type-chip--total {
     margin-left: auto;
-    border-color: var(--color-accent);
+    border-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
     background: color-mix(in srgb, var(--color-accent) 10%, transparent);
-}
-
-.dash-type-chip--total .dash-type-chip__n {
     color: var(--color-accent);
 }
 
@@ -894,7 +909,7 @@
 .admin-fetch-one__input {
     flex: 1;
     min-width: 180px;
-    background: var(--color-surface);
+    background: var(--color-bg-card);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-sm);
     padding: 9px 16px;
@@ -922,17 +937,17 @@
 }
 
 .admin-scan-btn__dot--anime {
-    background: #60a5fa;
+    background: var(--color-anime);
     box-shadow: 0 0 6px rgba(96, 165, 250, 0.5);
 }
 
 .admin-scan-btn__dot--film {
-    background: #c8a468;
+    background: var(--color-film);
     box-shadow: 0 0 6px rgba(200, 164, 104, 0.5);
 }
 
 .admin-scan-btn__dot--serie {
-    background: #a78bfa;
+    background: var(--color-serie);
     box-shadow: 0 0 6px rgba(167, 139, 250, 0.5);
 }
 
@@ -3675,15 +3690,15 @@ details[open] .admin-season__arrow svg {
 }
 
 .admin-volume-bar__fill--anime {
-    background: #60a5fa;
+    background: var(--color-anime);
 }
 
 .admin-volume-bar__fill--film {
-    background: #c8a468;
+    background: var(--color-film);
 }
 
 .admin-volume-bar__fill--serie {
-    background: #a78bfa;
+    background: var(--color-serie);
 }
 
 .admin-volume-disk {
@@ -4769,8 +4784,8 @@ details[open] .rename-season__arrow svg {
 }
 
 .health-ep-badge--serie {
-    color: #a78bfa;
-    background: rgba(167, 139, 250, .1);
+    color: #a1fa8b;
+    background: rgba(180, 250, 139, .1)
 }
 
 .health-ep-badge--film {

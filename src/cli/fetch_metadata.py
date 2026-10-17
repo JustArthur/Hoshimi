@@ -21,6 +21,7 @@ import glob as _glob
 import json
 import os
 import re
+import subprocess
 import tempfile
 import sys
 import time
@@ -174,6 +175,15 @@ def _lean_meta(media_type: str, details: dict, images: dict,
             meta["collection_id"]   = col.get("id")
             meta["collection_name"] = col.get("name")
     return {k: v for k, v in meta.items() if v is not None}
+
+def _guess_media_type(path: Path) -> str:
+    """Devine le type média depuis le chemin quand --type est omis (--cover-only global)."""
+    resolved = path.resolve()
+    for media_type, env_name in _ROOT_ENV.items():
+        root_val = os.environ.get(env_name)
+        if root_val and resolved == Path(root_val).resolve():
+            return media_type
+    return "anime"
 
 # ─── Nettoyage du nom ─────────────────────────────────────────────────────────
 
@@ -341,15 +351,8 @@ def process_anime(
 
     # ── 1. TMDB (anime = série TV) ────────────────────────────────────────────
     if api_key:
-        # Lookup direct par ID si fichier .tmdb_id présent
-        tmdb_id_file = output_dir / ".tmdb_id"
-        if tmdb_id_file.exists():
-            forced_id = tmdb_id_file.read_text(encoding="utf-8").strip()
-            media_id  = int(forced_id)
-            ok(f"  [TMDB]  ID forcé depuis .tmdb_id : {media_id}")
-            found = ({"id": media_id}, "tv")
-        else:
-            found = search_tmdb(name, api_key, "tv", auto=True, year=year)
+        found = search_tmdb(name, api_key, "tv", auto=True, year=year)
+        
         if found:
             result, media_type = found
             media_id = result["id"]
@@ -379,6 +382,8 @@ def process_anime(
                 }.items() if v})
 
             payload = _lean_meta("tv", details, images, credits, anilist_genres)
+            if al_data and al_data.get("id"):
+                payload["anilist_id"] = al_data["id"]
             if al_cast:
                 payload["cast"] = al_cast
                 ok(f"  [AL]    {len(al_cast)} personnage(s) AniList utilisé(s) pour le cast")
@@ -549,6 +554,15 @@ def fetch_images(media_id: int, media_type: str, api_key: str, adult: bool = Fal
             lst.sort(key=lambda x: x.get("vote_count", 0), reverse=True)
         return preferred + others
 
+    def pick_best_backdrop(items: list) -> list:
+        # Backdrop sans langue (souvent un artwork propre, sans texte) en premier.
+        no_lang = [i for i in items if i.get("iso_639_1") is None]
+        rest    = [i for i in items if i.get("iso_639_1") is not None]
+        # Tri par votes désactivé pour l'instant, on garde juste l'ordre TMDB.
+        # no_lang.sort(key=lambda x: x.get("vote_count", 0), reverse=True)
+        # rest.sort(key=lambda x: x.get("vote_count", 0), reverse=True)
+        return no_lang + rest
+
     def enrich(items: list, sizes: list) -> list:
         return [
             {**img, "urls": {s: f"{TMDB_IMAGE_BASE}/{s}{img['file_path']}" for s in sizes}}
@@ -557,7 +571,7 @@ def fetch_images(media_id: int, media_type: str, api_key: str, adult: bool = Fal
 
     return {
         "posters":   enrich(pick_best(raw.get("posters",   [])),       ["w185", "w342", "w500", "original"]),
-        "backdrops": enrich(pick_best(raw.get("backdrops", [])),       ["w300", "w780", "w1280", "original"]),
+        "backdrops": enrich(pick_best_backdrop(raw.get("backdrops", [])), ["w300", "w780", "w1280", "original"]),
         "logos":     enrich(pick_best(raw.get("logos",     []), "en"), ["w185", "w300", "w500", "original"]),
     }
 
@@ -749,18 +763,23 @@ def process_tmdb(
 ) -> bool:
     metadata_path = output_dir / "metadata.json"
     json_existed  = metadata_path.exists()
+    cover_exists  = any(output_dir.glob("cover.*"))
 
     if not force and json_existed:
-        return True  # skip silencieux
+        if not skip_images and not cover_exists:
+            try:
+                meta = json.loads(metadata_path.read_text(encoding="utf-8"))
+                tmdb_id    = meta.get("tmdb_id")
+                media_type = meta.get("media_type", forced_type or "movie")
+                if tmdb_id:
+                    images = fetch_images(tmdb_id, media_type, api_key, adult=adult)
+                    download_covers_tmdb(images, output_dir)
+            except Exception as e:
+                warn(f"  Impossible de retélécharger la cover : {e}")
+        return True
 
-    tmdb_id_file = output_dir / ".tmdb_id"
-    if tmdb_id_file.exists():
-        forced_id = int(tmdb_id_file.read_text(encoding="utf-8").strip())
-        ok(f"  [TMDB]  ID forcé depuis .tmdb_id : {forced_id}")
-        media_type = forced_type or "movie"
-        found = ({"id": forced_id}, media_type)
-    else:
-        found = search_tmdb(title, api_key, forced_type, auto=auto, year=year, adult=adult)
+    found = search_tmdb(title, api_key, forced_type, auto=auto, year=year, adult=adult)
+    
     if not found:
         warn(f"Aucun résultat TMDB pour {title!r}")
         return False
@@ -815,8 +834,10 @@ def scan_tmdb(root: Path, api_key: str, forced_type: Optional[str], force: bool,
         title, year = parse_title_year(raw_title)
         suffix = f"  (.title: {raw_title!r})" if has_title else ""
         print(f"[{i:>3}/{total}] {folder.name}{suffix}" + (f" [{year}]" if year else ""), flush=True)
-        if not force and (folder / "metadata.json").exists():
-            print("         --  metadata.json déjà présent, ignoré.", flush=True)
+        meta_exists  = (folder / "metadata.json").exists()
+        cover_exists = any(folder.glob("cover.*"))
+        if not force and meta_exists and cover_exists:
+            print("         --  Déjà complet, ignoré.", flush=True)
             return None
         return process_tmdb(title, folder, api_key, forced_type, auto=True, force=force, year=year, adult=adult) or False
 
@@ -1399,23 +1420,15 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
-    parser.add_argument("--type", "-t", required=True,
-                        choices=["anime", "film", "serie"],
-                        help="Type de média")
-
+    parser.add_argument("--type", "-t", required=False, choices=["anime", "film", "serie"], help="Type de média (optionnel avec --cover-only : traite les 3 types)")
+    
     mode = parser.add_mutually_exclusive_group(required=True)
-    mode.add_argument("--scan",    metavar="DIR",
-                      help="Scan batch — skip si metadata.json déjà présent")
-    mode.add_argument("--dir",     metavar="DIR",
-                      help="Fetch d'une seule oeuvre (conserve les images existantes)")
-    mode.add_argument("--force",   metavar="DIR",
-                      help="Rescan forcé — réutilise les IDs existants, re-télécharge les images")
-    mode.add_argument("--update",  metavar="DIR",
-                      help="Màj champs volatils uniquement (status, score, overview…)")
-    mode.add_argument("--seasons",    metavar="DIR",
-                      help="Refresh épisodes/saisons uniquement")
-    mode.add_argument("--cover-only", metavar="DIR",
-                      help="Re-télécharge uniquement la cover depuis l'URL dans metadata.json")
+    mode.add_argument("--scan",    metavar="DIR", help="Scan batch — skip si metadata.json déjà présent")
+    mode.add_argument("--dir",     metavar="DIR", help="Fetch d'une seule oeuvre (conserve les images existantes)")
+    mode.add_argument("--force",   metavar="DIR", help="Rescan forcé — réutilise les IDs existants, re-télécharge les images")
+    mode.add_argument("--update",  metavar="DIR", help="Màj champs volatils uniquement (status, score, overview…)")
+    mode.add_argument("--seasons",    metavar="DIR", help="Refresh épisodes/saisons uniquement")
+    mode.add_argument("--cover-only", metavar="DIR", help="Re-télécharge uniquement la cover depuis l'URL dans metadata.json")
 
     parser.add_argument("--tmdb-id", type=int, default=None, metavar="ID",
                         help="Force l'ID TMDB (uniquement avec --dir)")
@@ -1454,7 +1467,7 @@ def main() -> None:
             scan_seasons(root, api_key, force=False)
         else:
             scan_tmdb(root, api_key, forced_type, force=False, adult=adult)
-        clear_php_cache(); return
+        clear_php_cache(); patch_php_index(args.type, root, is_root=True); return
 
     # ── --dir : fetch d'une oeuvre précise (sans re-télécharger les images) ──
     if args.dir:
@@ -1462,36 +1475,42 @@ def main() -> None:
         if not target.is_dir():
             err(f"Dossier introuvable : {target}"); sys.exit(1)
 
-        tmdb_id_file = target / ".tmdb_id"
+        tmdb_id_file  = target / ".tmdb_id"
+        tmdb_id_owned = False
         if args.tmdb_id is not None:
             tmdb_id_file.write_text(str(args.tmdb_id), encoding="utf-8")
+            tmdb_id_owned = True
             ok(f"[TMDB] ID épinglé dans .tmdb_id : {args.tmdb_id}")
 
-        raw_title, has_title = _read_title(target)
-        raw_no_year, year    = parse_title_year(raw_title)
+        try:
+            raw_title, has_title = _read_title(target)
+            raw_no_year, year    = parse_title_year(raw_title)
 
-        print(f"\nFetch précis : {raw_title!r} [{args.type}] …\n")
+            print(f"\nFetch précis : {raw_title!r} [{args.type}] …\n")
 
-        if is_anime:
-            success = process_anime(
-                clean_name(raw_no_year), target, api_key,
-                force=True, year=year, adult=adult, skip_images=True,
-            )
-        else:
-            success = process_tmdb(
-                raw_no_year, target, api_key, forced_type,
-                auto=False, force=True, year=year, adult=adult, skip_images=True,
-            )
+            if is_anime:
+                success = process_anime(
+                    clean_name(raw_no_year), target, api_key,
+                    force=True, year=year, adult=adult, skip_images=False,
+                )
+            else:
+                success = process_tmdb(
+                    raw_no_year, target, api_key, forced_type,
+                    auto=False, force=True, year=year, adult=adult, skip_images=False,
+                )
 
-        if success and args.type in ("serie", "anime"):
-            sep(); info("Lancement du scan des saisons…\n")
-            scan_seasons(target, api_key, force=True)
+            if success and args.type in ("serie", "anime"):
+                sep(); info("Lancement du scan des saisons…\n")
+                scan_seasons(target, api_key, force=True)
+        finally:
+            if tmdb_id_owned:
+                tmdb_id_file.unlink(missing_ok=True)
 
         if success:
             print(f"\n✓  Terminé → {target / 'metadata.json'}\n")
         else:
             sys.exit(1)
-        clear_php_cache(); return
+        clear_php_cache(); patch_php_index(args.type, target, is_root=False); return
 
     # ── --force : rescan forcé (réutilise les IDs, re-télécharge les images) ─
     if args.force:
@@ -1514,7 +1533,7 @@ def main() -> None:
                 scan_tmdb(root, api_key, forced_type, force=True, adult=adult)
         finally:
             _cleanup_force_scan(root, injected)
-        clear_php_cache(); return
+        clear_php_cache(); regen_php_index(); return
 
     # ── --update : màj champs volatils ────────────────────────────────────────
     if args.update:
@@ -1522,7 +1541,7 @@ def main() -> None:
         if not target.is_dir():
             err(f"Dossier introuvable : {target}"); sys.exit(1)
         scan_update(target, api_key, is_anime=is_anime, adult=adult)
-        clear_php_cache(); return
+        clear_php_cache(); patch_php_index(args.type, target, is_root=is_media_root(target, args.type)); return
 
     # ── --seasons : refresh épisodes/saisons ──────────────────────────────────
     if args.seasons:
@@ -1530,16 +1549,54 @@ def main() -> None:
         if not target.is_dir():
             err(f"Dossier introuvable : {target}"); sys.exit(1)
         refresh_seasons(target, api_key)
-        clear_php_cache(); return
+        clear_php_cache(); patch_php_index(args.type, target, is_root=is_media_root(target, args.type)); return
 
-    # ── --cover-only : re-télécharge uniquement la cover ─────────────────────
+# ── --cover-only : re-télécharge uniquement la cover ─────────────────────
     if args.cover_only:
         target = Path(args.cover_only)
         if not target.is_dir():
             err(f"Dossier introuvable : {target}"); sys.exit(1)
         force_cover = args.cover_force
         scan_cover_only(target, force=force_cover)
-        clear_php_cache(); return
+        clear_php_cache()
+        media_type = args.type or _guess_media_type(target)
+        patch_php_index(media_type, target, is_root=is_media_root(target, media_type))
+        return
+
+
+_ROOT_ENV = {"anime": "ANIMES_PATH", "serie": "SERIES_PATH", "film": "FILMS_PATH"}
+
+
+def is_media_root(path: Path, media_type: str) -> bool:
+    env_name = _ROOT_ENV.get(media_type)
+    root_val = env_name and os.environ.get(env_name)
+    if not root_val:
+        return False
+    try:
+        return path.resolve() == Path(root_val).resolve()
+    except OSError:
+        return False
+
+
+def patch_php_index(php_type: str, path: Path, is_root: bool) -> None:
+    script = Path(__file__).parent / "patch-index.php"
+    flag = "--root" if is_root else "--dir"
+    try:
+        subprocess.run(
+            ["php", str(script), "--type", php_type, flag, str(path)],
+            check=False, capture_output=True, text=True, timeout=60,
+        )
+    except Exception:
+        pass
+
+
+def regen_php_index() -> None:
+    """Reconstruit entièrement l'index PHP (après --force uniquement)."""
+    script = Path(__file__).parent / "regen-index.php"
+    try:
+        subprocess.run(["php", str(script)], check=False, capture_output=True, text=True, timeout=120)
+    except Exception:
+        pass
 
 
 def clear_php_cache() -> None:

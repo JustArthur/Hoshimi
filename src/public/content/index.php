@@ -8,7 +8,7 @@ require_once __DIR__ . '/../../app/Services/ThumbnailHelper.php';
 $type = trim($_GET['type'] ?? 'anime');
 if (!in_array($type, ['anime', 'serie', 'film'], true)) $type = 'anime';
 
-$typeParam = match($type) {
+$typeParam = match ($type) {
     'serie' => '&type=serie',
     'film'  => '&type=film',
     default => '',
@@ -27,6 +27,22 @@ if (!$content) {
 
 $isFilm = ($type === 'film');
 $isAjax = !empty($_GET['ajax']);
+
+// ── Lien externe (fiche source) ────────────────────────────────────────────
+$externalUrl   = null;
+$externalLabel = null;
+if ($type === 'anime') {
+    if (!empty($content['anilist_id'])) {
+        $externalUrl   = 'https://anilist.co/anime/' . (int)$content['anilist_id'];
+        $externalLabel = 'AniList';
+    }
+} else {
+    $tmdbId = $content['metadata']['tmdb_id'] ?? null;
+    if ($tmdbId) {
+        $externalUrl   = 'https://www.themoviedb.org/' . ($type === 'serie' ? 'tv' : 'movie') . '/' . (int)$tmdbId;
+        $externalLabel = 'TMDB';
+    }
+}
 
 $metaRaw = $content['metadata'] ?? [];
 
@@ -48,7 +64,7 @@ $heroTitle = htmlspecialchars($isFilm ? $content['title'] : ($content['title_eng
 $heroSplit = !$heroLogo && !empty($content['cover_url']);
 
 // ── Meta hero ────────────────────────────────────────────────────────────────
-$typeLabel = match($type) {
+$typeLabel = match ($type) {
     'serie' => 'SÉRIE',
     'film'  => 'FILM',
     default => 'ANIME',
@@ -70,9 +86,7 @@ $statusLabels = [
     'PLANNED'          => 'À venir',
     'PILOT'            => 'Pilote',
 ];
-$statusLabel = !empty($content['status']) ? ($statusLabels[$content['status']] ?? $content['status']) : null;
 $isTrending  = $content['is_trending'] ?? false;
-$isAiring    = in_array($content['status'] ?? '', ['RELEASING', 'RETURNING SERIES'], true);
 
 // ── Synopsis ─────────────────────────────────────────────────────────────────
 $synopsis = null;
@@ -130,19 +144,29 @@ if ($isFilm) {
             $tid = $f['tmdb_id'] ?? null;
             if ($tid) $byTmdbId[$tid] = $f;
         }
+        $filmsRoot = rtrim($_ENV['FILMS_PATH'] ?? getenv('FILMS_PATH') ?: '/media/films', '/\\');
         foreach ($collectionParts as $part) {
             $tid       = $part['tmdb_id'] ?? null;
             $local     = $tid ? ($byTmdbId[$tid] ?? null) : null;
             $year      = $part['release_date'] ? (int)substr($part['release_date'], 0, 4) : null;
             $poster    = $part['poster_path'] ? 'https://image.tmdb.org/t/p/w342' . $part['poster_path'] : null;
             $isCurrent = $local && $local['slug'] === $content['slug'];
+
+            // Un dossier peut déjà exister (créé manuellement) sans encore
+            // apparaître dans l'index (pas de metadata.json / fichier vidéo)
+            $safeName    = preg_replace('/[<>:"\/\\\\|?*]/', '', $part['title']);
+            $safeName    = trim(preg_replace('/\s+/', ' ', $safeName));
+            if ($year) $safeName .= " ($year)";
+            $folderExists = is_dir($filmsRoot . DIRECTORY_SEPARATOR . $safeName);
+
             $collectionCards[] = [
-                'local'      => $local,
-                'title'      => $part['title'],
-                'year'       => $year,
-                'cover_url'  => $local['cover_url'] ?? $poster,
-                'is_current' => $isCurrent,
-                'tmdb_id'    => $tid,
+                'local'          => $local,
+                'title'          => $part['title'],
+                'year'           => $year,
+                'cover_url'      => $local['cover_url'] ?? $poster,
+                'is_current'     => $isCurrent,
+                'tmdb_id'        => $tid,
+                'folder_exists'  => $folderExists,
             ];
         }
     }
@@ -174,7 +198,10 @@ if (!$isFilm) {
     }
 
     foreach ($content['seasons'] as $s) {
-        if ($s['number'] === $activeSeason) { $seasonData = $s; break; }
+        if ($s['number'] === $activeSeason) {
+            $seasonData = $s;
+            break;
+        }
     }
     if ($seasonData === null) {
         $seasonData   = $content['seasons'][0] ?? null;
@@ -266,7 +293,7 @@ if (!$isAjax && !empty($currentGenres)) {
         ];
     }
     usort($scored, fn($a, $b) => $b['total'] <=> $a['total']);
-    $similaires = array_slice($scored, 0, 7);
+    $similaires = array_slice($scored, 0, 6);
 }
 
 require_once __DIR__ . '/../components/card.php';
@@ -275,6 +302,7 @@ require_once __DIR__ . '/../components/tabs.php';
 ?>
 <!DOCTYPE html>
 <html lang="fr">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -282,6 +310,7 @@ require_once __DIR__ . '/../components/tabs.php';
     <link rel="stylesheet" href="/css/hoshimi.css">
     <script src="/js/storage.js"></script>
 </head>
+
 <body>
     <?php include __DIR__ . '/../components/navbar.php'; ?>
 
@@ -300,107 +329,133 @@ require_once __DIR__ . '/../components/tabs.php';
                             alt="<?= $heroTitle ?>">
                     </div>
                     <div class="detail-hero__info-col">
-                <?php endif; ?>
+                    <?php endif; ?>
 
-                <!-- Badges -->
-                <div class="detail-hero__badges">
-                    <?php if ($isFilm): ?>
-                        <span class="badge badge--type"><?= lc('clapperboard', 12) ?> Film</span>
-                        <?php if (!($content['has_file'] ?? true)): ?>
-                            <span class="badge badge--soon">Prochainement</span>
+                    <!-- Badges -->
+                    <div class="detail-hero__badges">
+                        <?php if ($isFilm): ?>
+                            <span class="badge badge--type"><?= lc('clapperboard', 12) ?> Film</span>
+                            <?php if ($scoreDisp): ?>
+                                <span class="badge badge--score-hero"><?= lc('star', 12) ?> <?= $scoreDisp ?></span>
+                            <?php endif; ?>
+                            <?php if (!($content['has_file'] ?? true)): ?>
+                                <span class="badge badge--soon">Prochainement</span>
+                            <?php endif; ?>
+                        <?php else: ?>
+                            <?php $typeIcon = $type === 'serie' ? 'tv' : 'tv-2'; ?>
+                            <span class="badge badge--type"><?= lc($typeIcon, 12) ?> <?= $typeLabel ?></span>
+                            <?php if ($scoreDisp): ?>
+                                <span class="badge badge--score-hero"><?= lc('star', 12) ?> <?= $scoreDisp ?></span>
+                            <?php endif; ?>
+                            <?php if ($isTrending): ?>
+                                <span class="badge badge--trending"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                        <path d="M12 3q1 4 4 6.5t3 5.5a1 1 0 0 1-14 0 5 5 0 0 1 1-3 1 1 0 0 0 5 0c0-2-1.5-3-1.5-5q0-2 2.5-4"></path>
+                                    </svg> Tendance</span>
+                            <?php endif; ?>
+                            <?php if (!($seasonData['episodes'][0] ?? null)): ?>
+                                <span class="badge badge--soon">Prochainement</span>
+                            <?php endif; ?>
                         <?php endif; ?>
-                    <?php else: ?>
-                        <?php $typeIcon = $type === 'serie' ? 'tv' : 'tv-2'; ?>
-                        <span class="badge badge--type"><?= lc($typeIcon, 12) ?> <?= $typeLabel ?></span>
-                        <?php if ($isTrending): ?>
-                            <span class="badge badge--trending"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3q1 4 4 6.5t3 5.5a1 1 0 0 1-14 0 5 5 0 0 1 1-3 1 1 0 0 0 5 0c0-2-1.5-3-1.5-5q0-2 2.5-4"></path></svg> Tendance</span>
-                        <?php endif; ?>
-                        <?php if (!($seasonData['episodes'][0] ?? null)): ?>
-                            <span class="badge badge--soon">Prochainement</span>
-                        <?php endif; ?>
-                        <?php if ($isAiring): ?>
-                            <span class="airing-badge"><span class="airing-dot"></span>En cours</span>
-                        <?php endif; ?>
-                    <?php endif; ?>
-                    <?php if ($scoreDisp): ?>
-                        <span class="badge badge--score-hero"><?= lc('star', 12) ?> <?= $scoreDisp ?></span>
-                    <?php endif; ?>
-                </div>
-
-                <?php if ($heroLogo): ?>
-                    <img class="detail-hero__logo" src="<?= htmlspecialchars($heroLogo) ?>" alt="<?= $heroTitle ?>">
-                <?php else: ?>
-                    <h1 class="detail-hero__title"><?= $heroTitle ?></h1>
-                <?php endif; ?>
-
-                <?php if (!$isFilm && !empty($content['title_original']) && $content['title_original'] !== ($content['title_english'] ?: $content['title'])): ?>
-                    <p class="detail-hero__subtitle"><?= htmlspecialchars($content['title_original']) ?></p>
-                <?php endif; ?>
-
-                <!-- Méta -->
-                <div class="detail-hero__meta">
-                    <?php if ($statusLabel && !$isFilm): ?>
-                        <span class="detail-hero__meta-item"><?= htmlspecialchars($statusLabel) ?></span>
-                    <?php endif; ?>
-                    <?php if ($content['year'] ?? null): ?>
-                        <span class="detail-hero__meta-item"><?= lc('calendar', 13) ?> <?= $content['year'] ?></span>
-                    <?php endif; ?>
-                    <?php if ($isFilm && $runtimeStr): ?>
-                        <span class="detail-hero__meta-item"><?= lc('clock', 13) ?> <?= $runtimeStr ?></span>
-                    <?php endif; ?>
-                    <?php if ($isFilm && $vodDate): ?>
-                        <span class="detail-hero__meta-item" title="Sortie VOD">Disponible le <?= htmlspecialchars($vodDate) ?></span>
-                    <?php endif; ?>
-                    <?php if (!$isFilm && $epCount > 0): ?>
-                        <span class="detail-hero__meta-item"><?= lc('list', 13) ?> <?= $epCount ?> ép.</span>
-                    <?php endif; ?>
-                </div>
-
-                <!-- Genres -->
-                <?php if (!empty($content['genres']) || ($isFilm && !empty($filmEpisode['language']))): ?>
-                    <div class="detail-genres">
-                        <?php if ($isFilm && !empty($filmEpisode['language'])): ?>
-                            <?= renderLangBadges($filmEpisode['language']) ?>
-                        <?php elseif (!$isFilm && !empty($content['main_language'])): ?>
-                            <a href="#" class="badge badge--lang"><?= htmlspecialchars(strtoupper($content['main_language'])) ?></a>
-                        <?php endif; ?>
-                        <?php foreach (array_slice($content['genres'], 0, 6) as $genre): ?>
-                            <a href="/catalog/?type=<?= urlencode($type) ?>&genre=<?= urlencode($genre) ?>" class="badge"><?= htmlspecialchars($genre) ?></a>
-                        <?php endforeach; ?>
                     </div>
-                <?php endif; ?>
 
-                <!-- Actions -->
-                <div class="detail-hero__actions">
-                    <?php if ($isFilm): ?>
-                        <?php if ($content['has_file'] ?? true): ?>
-                            <a href="/player/?type=film&slug=<?= urlencode($slug) ?>" class="btn btn--primary" id="watch-btn">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true"><path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z"/></svg>
-                                <span id="watch-btn-label">Regarder</span>
-                            </a>
-                        <?php endif; ?>
+                    <?php if ($heroLogo): ?>
+                        <img class="detail-hero__logo" src="<?= htmlspecialchars($heroLogo) ?>" alt="<?= $heroTitle ?>">
                     <?php else: ?>
-                        <?php $firstEp = $seasonData['episodes'][0] ?? null; ?>
-                        <?php if ($firstEp): ?>
-                            <a id="watch-btn"
-                                href="/player/?slug=<?= urlencode($slug) ?><?= $typeParam ?>&saison=<?= $activeSeason ?>&episode=<?= $firstEp['number'] ?>"
-                                data-default-href="/player/?slug=<?= urlencode($slug) ?><?= $typeParam ?>&saison=<?= $activeSeason ?>&episode=<?= $firstEp['number'] ?>"
-                                class="btn btn--primary">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true"><path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z"></path></svg>
-                                Premier épisode
+                        <h1 class="detail-hero__title"><?= $heroTitle ?></h1>
+                    <?php endif; ?>
+
+                    <?php if (!$isFilm && !empty($content['title_original']) && $content['title_original'] !== ($content['title_english'] ?: $content['title'])): ?>
+                        <p class="detail-hero__subtitle"><?= htmlspecialchars($content['title_original']) ?></p>
+                    <?php endif; ?>
+
+                    <!-- Méta -->
+                    <div class="detail-hero__meta">
+                        <?php if ($externalUrl): ?>
+                            <a class="btn btn--ghost btn--ghost-chip" href="<?= htmlspecialchars($externalUrl) ?>" target="_blank" rel="noopener noreferrer" title="Voir sur <?= $externalLabel ?>">
+                                <?= lc('square-arrow-out-up-right', 12) ?>
+                                <span><?= $externalLabel ?></span>
                             </a>
                         <?php endif; ?>
-                    <?php endif; ?>
-                    <button class="btn btn--ghost" data-fav-btn title="Ajouter aux favoris">
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
-                        Favoris
-                    </button>
-                    <button class="btn btn--ghost" data-wl-btn title="Watchlist">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2 2 0 0 1 2 2v15a1 1 0 0 1-1.496.868l-4.512-2.578a2 2 0 0 0-1.984 0l-4.512 2.578A1 1 0 0 1 5 20V5a2 2 0 0 1 2-2z"/></svg>
-                    </button>
-                </div>
+                        <?php if ($content['year'] ?? null): ?>
+                            <span class="detail-hero__meta-item"><?= lc('calendar', 13) ?> <?= $content['year'] ?></span>
+                        <?php endif; ?>
+                        <?php if ($isFilm && $runtimeStr): ?>
+                            <span class="detail-hero__meta-item"><?= lc('clock', 13) ?> <?= $runtimeStr ?></span>
+                        <?php endif; ?>
+                        <?php if ($isFilm && $vodDate): ?>
+                            <span class="detail-hero__meta-item" title="Sortie VOD">Disponible le <?= htmlspecialchars($vodDate) ?></span>
+                        <?php endif; ?>
+                        <?php if (!$isFilm && $epCount > 0): ?>
+                            <span class="detail-hero__meta-item"><?= lc('list', 13) ?> <?= $epCount ?> ép.</span>
+                        <?php endif; ?>
+                    </div>
 
-                <?php if ($heroSplit): ?>
+                    <!-- Genres -->
+                    <?php if (!empty($content['genres']) || ($isFilm && !empty($filmEpisode['language']))): ?>
+                        <div class="detail-genres">
+                            <?php if ($isFilm && !empty($filmEpisode['language'])): ?>
+                                <?= renderLangBadges($filmEpisode['language']) ?>
+                            <?php elseif (!$isFilm && !empty($content['main_language'])): ?>
+                                <a href="#" class="badge badge--lang"><?= htmlspecialchars(strtoupper($content['main_language'])) ?></a>
+                            <?php endif; ?>
+                            <?php foreach (array_slice($content['genres'], 0, 6) as $genre): ?>
+                                <a href="/catalog/?genre=<?= urlencode($genre) ?>" class="badge"><?= htmlspecialchars($genre) ?></a>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
+
+                    <!-- Actions -->
+                    <div class="detail-hero__actions">
+                        <?php if ($isFilm): ?>
+                            <?php if ($content['has_file'] ?? true): ?>
+                                <a href="/player/?type=film&slug=<?= urlencode($slug) ?>" class="btn btn--primary" id="watch-btn">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true">
+                                        <path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z" />
+                                    </svg>
+                                    <span id="watch-btn-label">Regarder</span>
+                                </a>
+                            <?php endif; ?>
+                        <?php else: ?>
+                            <?php $firstEp = $seasonData['episodes'][0] ?? null; ?>
+                            <?php if ($firstEp): ?>
+                                <a id="watch-btn"
+                                    href="/player/?slug=<?= urlencode($slug) ?><?= $typeParam ?>&saison=<?= $activeSeason ?>&episode=<?= $firstEp['number'] ?>"
+                                    data-default-href="/player/?slug=<?= urlencode($slug) ?><?= $typeParam ?>&saison=<?= $activeSeason ?>&episode=<?= $firstEp['number'] ?>"
+                                    class="btn btn--primary">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true">
+                                        <path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z"></path>
+                                    </svg>
+                                    Premier épisode
+                                </a>
+                            <?php endif; ?>
+                        <?php endif; ?>
+                        <button class="btn btn--ghost btn--ghost-minimal" id="restart-btn" data-restart-btn title="Reprendre depuis le début" hidden>
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                                <path d="M3 3v5h5"></path>
+                            </svg>
+                        </button>
+                        <?php if ($isFilm && $filmEpKey): ?>
+                            <button class="btn btn--ghost btn--ghost-minimal" id="seen-btn" title="Marquer comme vu" aria-pressed="false">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"></path>
+                                    <circle cx="12" cy="12" r="3"></circle>
+                                </svg>
+                            </button>
+                        <?php endif; ?>
+                        <button class="btn btn--ghost btn--ghost-minimal" data-fav-btn title="Ajouter aux favoris">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                            </svg>
+                        </button>
+                        <button class="btn btn--ghost btn--ghost-minimal" data-wl-btn title="Watchlist">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M17 3a2 2 0 0 1 2 2v15a1 1 0 0 1-1.496.868l-4.512-2.578a2 2 0 0 0-1.984 0l-4.512 2.578A1 1 0 0 1 5 20V5a2 2 0 0 1 2-2z" />
+                            </svg>
+                        </button>
+                    </div>
+
+                    <?php if ($heroSplit): ?>
                     </div><!-- /.detail-hero__info-col -->
                 <?php endif; ?>
 
@@ -476,7 +531,7 @@ require_once __DIR__ . '/../components/tabs.php';
             <?php if (!empty($similaires)): ?>
                 <div class="detail-tab-panel" id="tab-suggestions" hidden>
                     <div class="suggestions-section">
-                        <div class="grid-cards grid-cards--7">
+                        <div class="grid-cards grid-cards--6">
                             <?php foreach ($similaires as $simData): ?>
                                 <?= render_card($simData['item'], $simData['type'], ['match_genres' => $simData['match_genres']]) ?>
                             <?php endforeach; ?>
@@ -490,303 +545,412 @@ require_once __DIR__ . '/../components/tabs.php';
             <!-- ── Épisodes (anime/série) ── -->
             <?php if ($isAjax): ob_start(); ?>
                 <div class="detail-tab-panel" id="tab-episodes">
-            <?php else: ?>
-                <div class="detail-tab-panel" id="tab-episodes">
-            <?php endif; ?>
+                <?php else: ?>
+                    <div class="detail-tab-panel" id="tab-episodes">
+                    <?php endif; ?>
 
-                <?php if (count($content['seasons']) > 1):
-                    $activeLabel = '';
-                    foreach ($content['seasons'] as $s) {
-                        if ((int)$s['number'] === (int)$activeSeason) { $activeLabel = $s['label']; break; }
-                    }
-                ?>
-                    <div class="cs-wrap" id="season-select" data-value="<?= $activeSeason ?>">
-                        <button class="cs-btn" type="button" aria-haspopup="listbox" aria-expanded="false">
-                            <span class="cs-label"><?= htmlspecialchars($activeLabel) ?></span>
-                        </button>
-                        <ul class="cs-list" role="listbox">
-                            <?php foreach ($content['seasons'] as $s):
-                                $isActive = (int)$s['number'] === (int)$activeSeason;
-                                $sEpCount = count($s['episodes'] ?? []);
-                            ?>
-                                <li class="cs-item <?= $isActive ? 'is-active' : '' ?>"
-                                    role="option"
-                                    aria-selected="<?= $isActive ? 'true' : 'false' ?>"
-                                    data-value="<?= $s['number'] ?>"
-                                    data-href="?slug=<?= urlencode($slug) ?><?= $typeParam ?>&saison=<?= $s['number'] ?>">
-                                    <span class="cs-check"><?php if ($isActive): ?><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><?php endif; ?></span>
-                                    <span class="cs-body">
-                                        <span class="cs-item-label"><?= htmlspecialchars($s['label']) ?></span>
-                                        <span class="cs-item-count"><?= $sEpCount ?> épisode<?= $sEpCount > 1 ? 's' : '' ?></span>
-                                    </span>
-                                </li>
-                            <?php endforeach; ?>
-                        </ul>
-                    </div>
-                <?php endif; ?>
-
-                <?php
-                $localCount = count($seasonData['episodes'] ?? []);
-                $futureEps  = array_filter($tmdbEpisodes, fn($idx) => $idx > $localCount, ARRAY_FILTER_USE_KEY);
-                ?>
-                <?php if (!empty($seasonData['episodes']) || !empty($tmdbEpisodes)): ?>
-                    <div class="episode-list">
-                        <?php foreach ($seasonData['episodes'] ?? [] as $ep):
-                            $isFilmEp  = ($activeSeason == 999);
-                            $epNum     = $ep['number'];
-                            $epKey     = md5($ep['file_path']);
-                            $lang      = strtoupper($ep['language'] ?? 'VOSTFR');
-                            $filesize  = $sizes[$epKey] ?? null;
-                            $tmdbEp    = $tmdbEpisodes[$epNum] ?? null;
-                            $stillUrl  = $tmdbEp['still'] ?? $tmdbEp['still_urls']['w300'] ?? $tmdbEp['still_urls']['w500'] ?? null;
-                            $epTmdbName= $tmdbEp['name'] ?? null;
-                            $epOverview= $tmdbEp['overview'] ?? null;
-                            $duration  = ($tmdbEp['runtime'] ?? 0) > 0
-                                ? ($tmdbEp['runtime'] . ' min')
-                                : ($durations[$epKey] ?? null);
-                            $thumb     = ThumbnailHelper::getUrlFromIndex($ep['file_path']);
-                            $imgSrc    = $stillUrl ?: $thumb;
-                            if ($isFilmEp) {
-                                $epLabel = trim(str_ireplace(['.mkv', '.mp4', '1080p', '720p', 'MULTISUB', 'MULTI'], '', $ep['title']), " _-") ?: 'Film';
-                            } else {
-                                $epLabel = 'E' . str_pad((string)$epNum, 2, '0', STR_PAD_LEFT);
-                                if ($epTmdbName) $epLabel .= ' - ' . $epTmdbName;
-                                elseif ($ep['title'] && $ep['title'] !== $epLabel) $epLabel .= ' - ' . $ep['title'];
+                    <?php if (count($content['seasons']) > 1):
+                        $activeLabel = '';
+                        foreach ($content['seasons'] as $s) {
+                            if ((int)$s['number'] === (int)$activeSeason) {
+                                $activeLabel = $s['label'];
+                                break;
                             }
-                        ?>
-                            <a href="/player/?slug=<?= urlencode($slug) ?><?= $typeParam ?>&saison=<?= $activeSeason ?>&episode=<?= $epNum ?>"
-                                class="episode-card"
-                                data-ep-key="<?= $epKey ?>">
-                                <div class="episode-card__thumbnail <?= empty($imgSrc) ? 'is-empty' : '' ?>">
-                                    <?php if ($imgSrc): ?>
-                                        <img src="<?= htmlspecialchars($imgSrc) ?>" alt="" loading="lazy" onerror="this.parentElement.classList.add('is-empty'); this.remove();">
-                                    <?php endif; ?>
-                                    <div class="episode-card__placeholder-number"><?= str_pad((string)$epNum, 2, '0', STR_PAD_LEFT) ?></div>
-                                    <div class="episode-card__overlay">
-                                        <div class="episode-card__play-icon"><?= lc('play', 16) ?></div>
+                        }
+                    ?>
+                        <div class="cs-wrap" id="season-select" data-value="<?= $activeSeason ?>">
+                            <button class="cs-btn" type="button" aria-haspopup="listbox" aria-expanded="false">
+                                <span class="cs-label"><?= htmlspecialchars($activeLabel) ?></span>
+                            </button>
+                            <ul class="cs-list" role="listbox">
+                                <?php foreach ($content['seasons'] as $s):
+                                    $isActive = (int)$s['number'] === (int)$activeSeason;
+                                    $sEpCount = count($s['episodes'] ?? []);
+                                ?>
+                                    <li class="cs-item <?= $isActive ? 'is-active' : '' ?>"
+                                        role="option"
+                                        aria-selected="<?= $isActive ? 'true' : 'false' ?>"
+                                        data-value="<?= $s['number'] ?>"
+                                        data-href="?slug=<?= urlencode($slug) ?><?= $typeParam ?>&saison=<?= $s['number'] ?>">
+                                        <span class="cs-check"><?php if ($isActive): ?><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                                    <polyline points="20 6 9 17 4 12" />
+                                                </svg><?php endif; ?></span>
+                                        <span class="cs-body">
+                                            <span class="cs-item-label"><?= htmlspecialchars($s['label']) ?></span>
+                                            <span class="cs-item-count"><?= $sEpCount ?> épisode<?= $sEpCount > 1 ? 's' : '' ?></span>
+                                        </span>
+                                    </li>
+                                <?php endforeach; ?>
+                            </ul>
+                        </div>
+                    <?php endif; ?>
+
+                    <?php
+                    $localCount = count($seasonData['episodes'] ?? []);
+                    $futureEps  = array_filter($tmdbEpisodes, fn($idx) => $idx > $localCount, ARRAY_FILTER_USE_KEY);
+                    ?>
+                    <?php if (!empty($seasonData['episodes']) || !empty($tmdbEpisodes)): ?>
+                        <div class="episode-list">
+                            <?php foreach ($seasonData['episodes'] ?? [] as $ep):
+                                $isFilmEp  = ($activeSeason == 999);
+                                $epNum     = $ep['number'];
+                                $epKey     = md5($ep['file_path']);
+                                $lang      = strtoupper($ep['language'] ?? 'VOSTFR');
+                                $filesize  = $sizes[$epKey] ?? null;
+                                $tmdbEp    = $tmdbEpisodes[$epNum] ?? null;
+                                $stillUrl  = $tmdbEp['still'] ?? $tmdbEp['still_urls']['w300'] ?? $tmdbEp['still_urls']['w500'] ?? null;
+                                $epTmdbName = $tmdbEp['name'] ?? null;
+                                $epOverview = $tmdbEp['overview'] ?? null;
+                                $duration  = ($tmdbEp['runtime'] ?? 0) > 0
+                                    ? ($tmdbEp['runtime'] . ' min')
+                                    : ($durations[$epKey] ?? null);
+                                $thumb     = ThumbnailHelper::getUrlFromIndex($ep['file_path']);
+                                $imgSrc    = $stillUrl ?: $thumb;
+                                if ($isFilmEp) {
+                                    $epLabel = trim(str_ireplace(['.mkv', '.mp4', '1080p', '720p', 'MULTISUB', 'MULTI'], '', $ep['title']), " _-") ?: 'Film';
+                                } else {
+                                    $epLabel = 'E' . str_pad((string)$epNum, 2, '0', STR_PAD_LEFT);
+                                    if ($epTmdbName) $epLabel .= ' - ' . $epTmdbName;
+                                    elseif ($ep['title'] && $ep['title'] !== $epLabel) $epLabel .= ' - ' . $ep['title'];
+                                }
+                            ?>
+                                <a href="/player/?slug=<?= urlencode($slug) ?><?= $typeParam ?>&saison=<?= $activeSeason ?>&episode=<?= $epNum ?>"
+                                    class="episode-card"
+                                    data-ep-key="<?= $epKey ?>">
+                                    <div class="episode-card__thumbnail <?= empty($imgSrc) ? 'is-empty' : '' ?>">
+                                        <?php if ($imgSrc): ?>
+                                            <img src="<?= htmlspecialchars($imgSrc) ?>" alt="" loading="lazy" onerror="this.parentElement.classList.add('is-empty'); this.remove();">
+                                        <?php endif; ?>
+                                        <div class="episode-card__placeholder-number"><?= str_pad((string)$epNum, 2, '0', STR_PAD_LEFT) ?></div>
+                                        <div class="episode-card__overlay">
+                                            <div class="episode-card__play-icon"><?= lc('play', 16) ?></div>
+                                        </div>
+                                        <?php if ($duration): ?>
+                                            <div class="episode-card__duration"><?= $duration ?></div>
+                                        <?php endif; ?>
+                                        <button type="button" class="episode-card__seen-btn" data-seen-btn title="Marquer comme vu" aria-pressed="false">
+                                            <?= lc('eye', 12) ?>
+                                        </button>
+                                        <div class="episode-card__progress">
+                                            <div class="episode-card__progress-fill" style="width:0%"></div>
+                                        </div>
                                     </div>
-                                    <?php if ($duration): ?>
-                                        <div class="episode-card__duration"><?= $duration ?></div>
-                                    <?php endif; ?>
-                                    <div class="episode-card__progress">
-                                        <div class="episode-card__progress-fill" style="width:0%"></div>
+                                    <div class="episode-card__body">
+                                        <span class="episode-card__label"><?= htmlspecialchars($epLabel) ?></span>
+                                        <?php if ($epOverview): ?>
+                                            <p class="episode-card__description"><?= htmlspecialchars($epOverview) ?></p>
+                                        <?php endif; ?>
+                                        <div class="episode-card__info">
+                                            <?= renderLangBadges($lang) ?>
+                                            <?php if ($filesize): ?>
+                                                <span style="font-size:0.65rem; color:var(--color-text-muted); margin-left:auto;"><?= $filesize ?></span>
+                                            <?php endif; ?>
+                                        </div>
                                     </div>
-                                </div>
-                                <div class="episode-card__body">
-                                    <span class="episode-card__label"><?= htmlspecialchars($epLabel) ?></span>
-                                    <?php if ($epOverview): ?>
-                                        <p class="episode-card__description"><?= htmlspecialchars($epOverview) ?></p>
-                                    <?php endif; ?>
-                                    <div class="episode-card__info">
-                                        <?= renderLangBadges($lang) ?>
-                                        <?php if ($filesize): ?>
-                                            <span style="font-size:0.65rem; color:var(--color-text-muted); margin-left:auto;"><?= $filesize ?></span>
+                                </a>
+                            <?php endforeach; ?>
+
+                            <?php
+                            $moisFr = ['', 'janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+                            ?>
+                            <?php foreach ($futureEps as $epNum => $ep):
+                                $epName    = $ep['name'] ?? null;
+                                $airDate   = $ep['air_date'] ?? null;
+                                $runtime   = isset($ep['runtime']) && $ep['runtime'] > 0 ? $ep['runtime'] . ' min' : null;
+                                $epLabel   = 'E' . str_pad((string)$epNum, 2, '0', STR_PAD_LEFT) . ($epName ? ' - ' . $epName : '');
+                                $airDateFmt = null;
+                                if ($airDate && preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $airDate, $dm)) {
+                                    $airDateFmt = (int)$dm[3] . ' ' . $moisFr[(int)$dm[2]] . ' ' . $dm[1];
+                                }
+                                $epStill = $ep['still'] ?? $ep['still_urls']['w300'] ?? $ep['still_urls']['w500'] ?? null;
+                            ?>
+                                <div class="episode-card episode-card--upcoming">
+                                    <div class="episode-card__thumbnail <?= $epStill ? 'has-still' : 'is-empty' ?>">
+                                        <?php if ($epStill): ?>
+                                            <img src="<?= htmlspecialchars($epStill) ?>" alt="" class="episode-card__still-blur" loading="lazy">
+                                        <?php endif; ?>
+                                        <div class="episode-card__upcoming-overlay">
+                                            <span class="episode-card__upcoming-num">Ep. <?= (int)$epNum ?></span>
+                                            <span class="episode-card__upcoming-soon">Bientôt dispo</span>
+                                        </div>
+                                        <?php if ($runtime): ?>
+                                            <div class="episode-card__duration"><?= $runtime ?></div>
+                                        <?php endif; ?>
+                                    </div>
+                                    <div class="episode-card__body">
+                                        <span class="episode-card__label"><?= htmlspecialchars($epLabel) ?></span>
+                                        <?php if (!empty($ep['overview'])): ?>
+                                            <p class="episode-card__description"><?= htmlspecialchars($ep['overview']) ?></p>
+                                        <?php endif; ?>
+                                        <?php if ($airDateFmt): ?>
+                                            <span class="episode-card__airdate">Dispo le <?= $airDateFmt ?></span>
                                         <?php endif; ?>
                                     </div>
                                 </div>
-                            </a>
-                        <?php endforeach; ?>
-
-                        <?php
-                        $moisFr = ['','janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
-                        ?>
-                        <?php foreach ($futureEps as $epNum => $ep):
-                            $epName    = $ep['name'] ?? null;
-                            $airDate   = $ep['air_date'] ?? null;
-                            $runtime   = isset($ep['runtime']) && $ep['runtime'] > 0 ? $ep['runtime'] . ' min' : null;
-                            $epLabel   = 'E' . str_pad((string)$epNum, 2, '0', STR_PAD_LEFT) . ($epName ? ' - ' . $epName : '');
-                            $airDateFmt = null;
-                            if ($airDate && preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $airDate, $dm)) {
-                                $airDateFmt = (int)$dm[3] . ' ' . $moisFr[(int)$dm[2]] . ' ' . $dm[1];
-                            }
-                            $epStill = $ep['still'] ?? $ep['still_urls']['w300'] ?? $ep['still_urls']['w500'] ?? null;
-                        ?>
-                            <div class="episode-card episode-card--upcoming">
-                                <div class="episode-card__thumbnail <?= $epStill ? 'has-still' : 'is-empty' ?>">
-                                    <?php if ($epStill): ?>
-                                        <img src="<?= htmlspecialchars($epStill) ?>" alt="" class="episode-card__still-blur" loading="lazy">
-                                    <?php endif; ?>
-                                    <div class="episode-card__upcoming-overlay">
-                                        <span class="episode-card__upcoming-num">Ep. <?= (int)$epNum ?></span>
-                                        <span class="episode-card__upcoming-soon">Bientôt dispo</span>
-                                    </div>
-                                    <?php if ($runtime): ?>
-                                        <div class="episode-card__duration"><?= $runtime ?></div>
-                                    <?php endif; ?>
-                                </div>
-                                <div class="episode-card__body">
-                                    <span class="episode-card__label"><?= htmlspecialchars($epLabel) ?></span>
-                                    <?php if (!empty($ep['overview'])): ?>
-                                        <p class="episode-card__description"><?= htmlspecialchars($ep['overview']) ?></p>
-                                    <?php endif; ?>
-                                    <?php if ($airDateFmt): ?>
-                                        <span class="episode-card__airdate">Dispo le <?= $airDateFmt ?></span>
-                                    <?php endif; ?>
-                                </div>
-                            </div>
-                        <?php endforeach; ?>
-                    </div>
-                <?php else: ?>
-                    <div class="no-episodes">
-                        <div class="no-episodes__icon">
-                            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
-                        </div>
-                        <p class="no-episodes__text">Aucun épisode disponible pour le moment.</p>
-                        <p class="no-episodes__sub">Le contenu sera ajouté prochainement.</p>
-                    </div>
-                <?php endif; ?>
-
-            </div><!-- #tab-episodes -->
-            <?php if ($isAjax): header('Content-Type: text/html; charset=utf-8'); echo ob_get_clean(); exit; endif; ?>
-
-            <!-- ── Cast ── -->
-            <div class="detail-tab-panel" id="tab-cast" hidden>
-                <?= render_character_grid($castData, 'Aucune donnée disponible.', $type === 'anime' ? null : 'Acteurs') ?>
-            </div>
-
-            <!-- ── Suggestions (anime/série) ── -->
-            <?php if (!empty($similaires)): ?>
-                <div class="detail-tab-panel" id="tab-suggestions" hidden>
-                    <div class="suggestions-section">
-                        <div class="grid-cards grid-cards--7">
-                            <?php foreach ($similaires as $simData): ?>
-                                <?= render_card($simData['item'], $simData['type'], ['match_genres' => $simData['match_genres']]) ?>
                             <?php endforeach; ?>
                         </div>
+                    <?php else: ?>
+                        <div class="no-episodes">
+                            <div class="no-episodes__icon">
+                                <svg viewBox="0 0 24 24" aria-hidden="true">
+                                    <circle cx="12" cy="12" r="9" />
+                                    <polyline points="12 7 12 12 15 15" />
+                                </svg>
+                            </div>
+                            <p class="no-episodes__text">Aucun épisode disponible pour le moment.</p>
+                            <p class="no-episodes__sub">Le contenu sera ajouté prochainement.</p>
+                        </div>
+                    <?php endif; ?>
+
+                    </div><!-- #tab-episodes -->
+                    <?php if ($isAjax): header('Content-Type: text/html; charset=utf-8');
+                        echo ob_get_clean();
+                        exit;
+                    endif; ?>
+
+                    <!-- ── Cast ── -->
+                    <div class="detail-tab-panel" id="tab-cast" hidden>
+                        <?= render_character_grid($castData, 'Aucune donnée disponible.', $type === 'anime' ? null : 'Acteurs') ?>
                     </div>
-                </div>
-            <?php endif; ?>
 
-        <?php endif; ?>
+                    <!-- ── Suggestions (anime/série) ── -->
+                    <?php if (!empty($similaires)): ?>
+                        <div class="detail-tab-panel" id="tab-suggestions" hidden>
+                            <div class="suggestions-section">
+                                <div class="grid-cards grid-cards--6">
+                                    <?php foreach ($similaires as $simData): ?>
+                                        <?= render_card($simData['item'], $simData['type'], ['match_genres' => $simData['match_genres']]) ?>
+                                    <?php endforeach; ?>
+                                </div>
+                            </div>
+                        </div>
+                    <?php endif; ?>
 
-    </div><!-- .detail-body -->
+                <?php endif; ?>
 
-    <?php include __DIR__ . '/../components/footer.php'; ?>
+                </div><!-- .detail-body -->
 
-    <script src="/js/guard.js"></script>
-    <script src="/js/parallax.js"></script>
-    <script src="/js/tabs.js"></script>
-    <?php if (!$isFilm): ?>
-    <script src="/js/select.js"></script>
-    <?php endif; ?>
+                <?php include __DIR__ . '/../components/footer.php'; ?>
 
-    <script>
-    <?php if ($isFilm): ?>
-        // ── Film : Reprendre ──────────────────────────────────────────────────
-        (function() {
-            const epKey = <?= json_encode($filmEpKey) ?>;
-            const btn   = document.getElementById('watch-btn');
-            const label = document.getElementById('watch-btn-label');
-            if (!epKey || !btn || !label) return;
-            const p = HoshimiStorage.Progress.get(epKey);
-            if (!p || p.position < 10 || p.completed) return;
-            const pos = Math.floor(p.position);
-            const dur = p.duration ?? 0;
-            const pct = dur > 0 ? Math.min(100, (pos / dur) * 100) : 0;
-            const h = Math.floor(pos / 3600);
-            const m = Math.floor((pos % 3600) / 60);
-            const s = pos % 60;
-            const time = h > 0
-                ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
-                : `${m}:${String(s).padStart(2,'0')}`;
-            btn.classList.add('btn--resume');
-            btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true"><path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z"/></svg><span>Reprendre</span><span class="btn-resume__sep">·</span><span class="btn-resume__time">${time}</span><span class="btn-resume__bar"><span class="btn-resume__fill" style="width:${pct}%"></span></span>`;
-        })();
+                <script src="/js/guard.js"></script>
+                <script src="/js/parallax.js"></script>
+                <script src="/js/tabs.js"></script>
+                <?php if (!$isFilm): ?>
+                    <script src="/js/select.js"></script>
+                <?php endif; ?>
 
-    <?php else: ?>
+                <script>
+                    <?php if ($isFilm): ?>
+                            // ── Film : Marquer comme vu ───────────────────────────────────────────
+                            (function() {
+                                const epKey = <?= json_encode($filmEpKey) ?>;
+                                const seenBtn = document.getElementById('seen-btn');
+                                if (!epKey || !seenBtn) return;
+                                const eyePath = '<path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/>';
+                                const svg = done => '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + eyePath + '<circle cx="12" cy="12" r="3"' + (done ? ' fill="currentColor"' : '') + '/></svg>';
+                                // Même rendu que les boutons favori / watchlist
+                                const render = () => {
+                                    const done = !!HoshimiStorage.Progress.get(epKey).completed;
+                                    seenBtn.innerHTML = svg(done);
+                                    seenBtn.style.color = done ? 'var(--color-accent)' : '';
+                                    seenBtn.style.backgroundColor = done ? 'rgba(200, 164, 104, 0.06)' : '';
+                                    seenBtn.setAttribute('aria-pressed', done ? 'true' : 'false');
+                                    seenBtn.title = done ? 'Marquer comme non vu' : 'Marquer comme vu';
+                                    return done;
+                                };
+                                render();
+                                seenBtn.addEventListener('click', () => {
+                                    const p = HoshimiStorage.Progress.get(epKey);
+                                    const hadResume = document.getElementById('watch-btn')?.classList.contains('btn--resume');
+                                    if (p.completed) HoshimiStorage.Progress.remove(epKey);
+                                    else HoshimiStorage.Progress.save(epKey, p.duration || 0, p.duration || 0, true);
+                                    if (hadResume) return location.reload();
+                                    const done = render();
+                                    if (typeof showToast === 'function') showToast(done ? 'Marqué comme vu' : 'Marqué comme non vu');
+                                });
+                            })();
 
-        const allAnimeEps = <?= json_encode(array_merge(...array_map(
-            fn($s) => array_map(fn($ep) => [
-                'key'    => md5($ep['file_path']),
-                'season' => $s['number'],
-                'number' => $ep['number'],
-            ], $s['episodes']),
-            $content['seasons']
-        ))) ?>;
+                            // ── Film : Reprendre ──────────────────────────────────────────────────
+                            (function() {
+                                const epKey = <?= json_encode($filmEpKey) ?>;
+                                const btn = document.getElementById('watch-btn');
+                                const label = document.getElementById('watch-btn-label');
+                                const restartBtn = document.getElementById('restart-btn');
+                                if (!epKey || !btn || !label) return;
+                                const originalHtml = btn.innerHTML;
+                                const p = HoshimiStorage.Progress.get(epKey);
+                                if (!p || p.position < 10 || p.completed) return;
+                                const pos = Math.floor(p.position);
+                                const dur = p.duration ?? 0;
+                                const pct = dur > 0 ? Math.min(100, (pos / dur) * 100) : 0;
+                                const h = Math.floor(pos / 3600);
+                                const m = Math.floor((pos % 3600) / 60);
+                                const s = pos % 60;
+                                const time = h > 0 ?
+                                    `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}` :
+                                    `${m}:${String(s).padStart(2,'0')}`;
+                                btn.classList.add('btn--resume');
+                                btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true"><path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z"/></svg><span>Reprendre</span><span class="btn-resume__sep">·</span><span class="btn-resume__time">${time}</span><span class="btn-resume__bar"><span class="btn-resume__fill" style="width:${pct}%"></span></span>`;
 
-        const seasonEps = <?= json_encode(array_map(
-            fn($ep) => ['key' => md5($ep['file_path']), 'number' => $ep['number']],
-            $seasonData['episodes'] ?? []
-        )) ?>;
+                                if (restartBtn) {
+                                    restartBtn.hidden = false;
+                                    restartBtn.addEventListener('click', async () => {
+                                        if (!await HoshimiConfirm.ask('Reprendre ce film depuis le début ? La progression actuelle sera perdue.', { confirm: 'Reprendre du début', type: 'danger' })) return;
+                                        HoshimiStorage.Progress.remove(epKey);
+                                        btn.classList.remove('btn--resume');
+                                        btn.innerHTML = originalHtml;
+                                        restartBtn.hidden = true;
+                                    });
+                                }
+                            })();
 
-        function initSeasonSelect() {
-            const wrap = document.getElementById('season-select');
-            if (!wrap) return;
-            HoshimiSelect.init(wrap);
-            wrap.addEventListener('cs:change', ({ detail: { item } }) => {
-                const href = item.dataset.href;
-                if (!href) return;
-                const panel = document.getElementById('tab-episodes');
-                if (!panel) { window.location.href = href; return; }
-                panel.style.opacity = '0.4';
-                fetch(href + '&ajax=1')
-                    .then(r => r.text())
-                    .then(html => {
-                        const tmp = document.createElement('div');
-                        tmp.innerHTML = html;
-                        const inner = tmp.querySelector('#tab-episodes');
-                        if (!inner) { window.location.href = href; return; }
-                        panel.innerHTML = inner.innerHTML;
-                        panel.style.opacity = '';
-                        history.pushState(null, '', href);
+                    <?php else: ?>
+
+                        const allAnimeEps = <?= json_encode(array_merge(...array_map(
+                                                fn($s) => array_map(fn($ep) => [
+                                                    'key'    => md5($ep['file_path']),
+                                                    'season' => $s['number'],
+                                                    'number' => $ep['number'],
+                                                ], $s['episodes']),
+                                                $content['seasons']
+                                            ))) ?>;
+
+                        const seasonEps = <?= json_encode(array_map(
+                                                fn($ep) => ['key' => md5($ep['file_path']), 'number' => $ep['number']],
+                                                $seasonData['episodes'] ?? []
+                                            )) ?>;
+
+                        function initSeasonSelect() {
+                            const wrap = document.getElementById('season-select');
+                            if (!wrap) return;
+                            HoshimiSelect.init(wrap);
+                            wrap.addEventListener('cs:change', ({
+                                detail: {
+                                    item
+                                }
+                            }) => {
+                                const href = item.dataset.href;
+                                if (!href) return;
+                                const panel = document.getElementById('tab-episodes');
+                                if (!panel) {
+                                    window.location.href = href;
+                                    return;
+                                }
+                                panel.style.opacity = '0.4';
+                                fetch(href + '&ajax=1')
+                                    .then(r => r.text())
+                                    .then(html => {
+                                        const tmp = document.createElement('div');
+                                        tmp.innerHTML = html;
+                                        const inner = tmp.querySelector('#tab-episodes');
+                                        if (!inner) {
+                                            window.location.href = href;
+                                            return;
+                                        }
+                                        panel.innerHTML = inner.innerHTML;
+                                        panel.style.opacity = '';
+                                        history.pushState(null, '', href);
+                                        initSeasonSelect();
+                                        initProgressBars();
+                                    })
+                                    .catch(() => {
+                                        window.location.href = href;
+                                    });
+                            });
+                        }
+
+                        function initProgressBars() {
+                            const allProgress = HoshimiStorage.Progress.getAllProgress();
+                            document.querySelectorAll('[data-ep-key]').forEach(el => {
+                                const p = allProgress[el.dataset.epKey];
+                                const bar = el.querySelector('.episode-card__progress-fill');
+                                const seenBtn = el.querySelector('[data-seen-btn]');
+                                const pct = p && p.duration > 0 ? (p.position / p.duration) * 100 : 0;
+                                const isFinished = !!p && (p.completed || pct >= 92);
+                                if (bar) bar.style.width = (isFinished ? 100 : pct) + '%';
+                                el.classList.toggle('is-completed', isFinished);
+                                if (seenBtn) {
+                                    seenBtn.setAttribute('aria-pressed', isFinished ? 'true' : 'false');
+                                    seenBtn.title = isFinished ? 'Marquer comme non vu' : 'Marquer comme vu';
+                                }
+                            });
+                        }
+
+                        document.addEventListener('click', e => {
+                            const btn = e.target.closest('[data-seen-btn]');
+                            if (!btn) return;
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const card = btn.closest('[data-ep-key]');
+                            const key = card?.dataset.epKey;
+                            if (!key) return;
+                            const p = HoshimiStorage.Progress.get(key);
+                            if (card.classList.contains('is-completed')) {
+                                HoshimiStorage.Progress.remove(key);
+                            } else {
+                                HoshimiStorage.Progress.save(key, p.duration || 0, p.duration || 0, true);
+                            }
+                            initProgressBars();
+                        });
+
                         initSeasonSelect();
-                        initProgressBars();
-                    })
-                    .catch(() => { window.location.href = href; });
-            });
-        }
 
-        function initProgressBars() {
-            const allProgress = HoshimiStorage.Progress.getAllProgress();
-            document.querySelectorAll('[data-ep-key]').forEach(el => {
-                const p = allProgress[el.dataset.epKey];
-                if (!p || p.duration <= 0) return;
-                const pct = (p.position / p.duration) * 100;
-                const isFinished = p.completed || pct >= 92;
-                const bar = el.querySelector('.episode-card__progress-fill');
-                if (bar) bar.style.width = (isFinished ? 100 : pct) + '%';
-                if (isFinished) el.classList.add('is-completed');
-            });
-        }
+                        document.addEventListener('DOMContentLoaded', () => {
+                            initProgressBars();
+                            const allProgress = HoshimiStorage.Progress.getAllProgress();
+                            const watchBtn = document.getElementById('watch-btn');
+                            const restartBtn = document.getElementById('restart-btn');
+                            if (watchBtn) {
+                                const originalHtml = watchBtn.innerHTML;
+                                const originalHref = watchBtn.dataset.defaultHref || watchBtn.href;
+                                let resumeEp = null;
+                                allAnimeEps.forEach(ep => {
+                                    const p = allProgress[ep.key];
+                                    if (!p || p.completed || p.position <= 10) return;
+                                    if (!resumeEp || p.updated_at > allProgress[resumeEp.key]?.updated_at) resumeEp = ep;
+                                });
+                                if (resumeEp) {
+                                    const p = allProgress[resumeEp.key];
+                                    const pos = p?.position ?? 0;
+                                    const dur = p?.duration ?? 0;
+                                    const pct = dur > 0 ? Math.min(100, (pos / dur) * 100) : 0;
+                                    const fmt = s => {
+                                        const m = Math.floor(s / 60);
+                                        return m + ':' + String(Math.floor(s % 60)).padStart(2, '0');
+                                    };
+                                    const epCode = `S${String(resumeEp.season).padStart(2,'0')}E${String(resumeEp.number).padStart(2,'0')}`;
+                                    watchBtn.href = `/player/?slug=<?= urlencode($slug) ?><?= $typeParam ?>&saison=${resumeEp.season}&episode=${resumeEp.number}`;
+                                    watchBtn.classList.add('btn--resume');
+                                    watchBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true"><path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z"/></svg><span>Reprendre</span><span class="btn-resume__sep">·</span><span class="btn-resume__ep">${epCode}</span><span class="btn-resume__sep">·</span><span class="btn-resume__time">${fmt(pos)}</span><span class="btn-resume__bar"><span class="btn-resume__fill" style="width:${pct}%"></span></span>`;
 
-        initSeasonSelect();
+                                    if (restartBtn) {
+                                        restartBtn.hidden = false;
+                                        restartBtn.addEventListener('click', async () => {
+                                            if (!await HoshimiConfirm.ask('Reprendre depuis le début ? Toute la progression sur cette série/anime sera perdue.', { confirm: 'Reprendre du début', type: 'danger' })) return;
+                                            allAnimeEps.forEach(ep => HoshimiStorage.Progress.remove(ep.key));
+                                            watchBtn.classList.remove('btn--resume');
+                                            watchBtn.innerHTML = originalHtml;
+                                            watchBtn.href = originalHref;
+                                            restartBtn.hidden = true;
+                                            initProgressBars();
+                                        });
+                                    }
+                                }
+                            }
+                        });
+                    <?php endif; ?>
 
-        document.addEventListener('DOMContentLoaded', () => {
-            initProgressBars();
-            const allProgress = HoshimiStorage.Progress.getAllProgress();
-            const watchBtn = document.getElementById('watch-btn');
-            if (watchBtn) {
-                let resumeEp = null;
-                allAnimeEps.forEach(ep => {
-                    const p = allProgress[ep.key];
-                    if (!p || p.completed || p.position <= 10) return;
-                    if (!resumeEp || p.updated_at > allProgress[resumeEp.key]?.updated_at) resumeEp = ep;
-                });
-                if (resumeEp) {
-                    const p   = allProgress[resumeEp.key];
-                    const pos = p?.position ?? 0;
-                    const dur = p?.duration  ?? 0;
-                    const pct = dur > 0 ? Math.min(100, (pos / dur) * 100) : 0;
-                    const fmt = s => { const m = Math.floor(s/60); return m + ':' + String(Math.floor(s%60)).padStart(2,'0'); };
-                    const epCode = `S${String(resumeEp.season).padStart(2,'0')}E${String(resumeEp.number).padStart(2,'0')}`;
-                    watchBtn.href = `/player/?slug=<?= urlencode($slug) ?><?= $typeParam ?>&saison=${resumeEp.season}&episode=${resumeEp.number}`;
-                    watchBtn.classList.add('btn--resume');
-                    watchBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true"><path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z"/></svg><span>Reprendre</span><span class="btn-resume__sep">·</span><span class="btn-resume__ep">${epCode}</span><span class="btn-resume__sep">·</span><span class="btn-resume__time">${fmt(pos)}</span><span class="btn-resume__bar"><span class="btn-resume__fill" style="width:${pct}%"></span></span>`;
-                }
-            }
-        });
-    <?php endif; ?>
-
-        const _contentMeta = {
-            title:     <?= json_encode($isFilm ? $content['title'] : ($content['title_english'] ?: $content['title'])) ?>,
-            cover_url: <?= json_encode($content['cover_url'] ?? '') ?>,
-            type:      <?= json_encode($type) ?>,
-            year:      <?= (int)($content['year'] ?? 0) ?: 'null' ?>,
-            genres:    <?= json_encode(array_values($content['genres'] ?? [])) ?>,
-        };
-        HoshimiStorage.initFavoriteButton(document.querySelector('[data-fav-btn]'), <?= json_encode($slug) ?>, _contentMeta);
-        HoshimiStorage.initWatchlistButton(document.querySelector('[data-wl-btn]'), <?= json_encode($slug) ?>, _contentMeta);
-    </script>
+                    const _contentMeta = {
+                        title: <?= json_encode($isFilm ? $content['title'] : ($content['title_english'] ?: $content['title'])) ?>,
+                        cover_url: <?= json_encode($content['cover_url'] ?? '') ?>,
+                        type: <?= json_encode($type) ?>,
+                        year: <?= (int)($content['year'] ?? 0) ?: 'null' ?>,
+                        genres: <?= json_encode(array_values($content['genres'] ?? [])) ?>,
+                    };
+                    HoshimiStorage.initFavoriteButton(document.querySelector('[data-fav-btn]'), <?= json_encode($slug) ?>, _contentMeta);
+                    HoshimiStorage.initWatchlistButton(document.querySelector('[data-wl-btn]'), <?= json_encode($slug) ?>, _contentMeta);
+                </script>
 
 </body>
+
 </html>

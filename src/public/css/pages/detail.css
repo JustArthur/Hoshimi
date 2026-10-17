@@ -165,10 +165,9 @@
     flex-wrap: wrap;
     align-items: center;
     gap: 10px;
-    font-size: 0.78rem;
+    font-size: 0.72rem;
     font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
+    letter-spacing: 0.03em;
     color: var(--color-text-soft);
 }
 
@@ -176,7 +175,6 @@
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    color: rgba(255, 255, 255, 0.7);
 }
 
 .detail-hero__meta-item svg {
@@ -209,6 +207,49 @@
 .detail-hero__actions .btn--ghost {
     color: var(--color-text-muted);
     padding: 10px 15px;
+}
+
+/* Variante minimale (sans coque) — restart/favoris/watchlist uniquement.
+   Classe secondaire ajoutée à .btn--ghost, ne modifie jamais la classe de base. */
+.detail-hero__actions .btn--ghost.btn--ghost-minimal {
+    background: none;
+    border: none;
+    backdrop-filter: none;
+    width: 41px;
+    height: 41px;
+    padding: 0;
+    border-radius: var(--radius-sm);
+    justify-content: center;
+    color: var(--color-text-muted);
+}
+
+.detail-hero__actions .btn--ghost.btn--ghost-minimal:hover {
+    background: var(--color-border-soft);
+    color: var(--color-text);
+    border: none;
+}
+
+/* Variante chip (lien externe TMDB/AniList) — pilule texte discrète, vit
+   dans .detail-hero__meta (ligne année/durée), pas dans .detail-hero__actions. */
+.detail-hero__meta .btn--ghost.btn--ghost-chip {
+    display: inline-flex;
+    align-items: center;
+    background: none;
+    border: 1px solid var(--color-border-soft);
+    backdrop-filter: none;
+    padding: 3px 11px;
+    border-radius: var(--radius-sm);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    gap: 6px;
+    color: var(--color-text-muted);
+}
+
+.detail-hero__meta .btn--ghost.btn--ghost-chip:hover {
+    color: var(--color-accent);
+    border-color: var(--color-accent);
+    background: none;
 }
 
 /* ── Body ────────────────────────────────────────────────────────────────── */

@@ -22,7 +22,7 @@ $current_path = '';
             <div class="error-page__kanji" aria-hidden="true">404</div>
             <div class="error-page__content">
                 <h1 class="error-page__title">Page introuvable</h1>
-                <p class="error-page__sub">Ce contenu n'existe pas ou a été déplacé.</p>
+                <p class="error-page__sub">Ce contenu n'existe pas ou a été supprimé.</p>
                 <div class="error-page__actions">
                     <a href="/" class="btn btn--primary">Retour à l'accueil</a>
                     <a href="javascript:history.back()" class="btn btn--ghost">Page précédente</a>

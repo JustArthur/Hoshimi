@@ -1,6 +1,6 @@
 /* ── Favoris page ──────────────────────────────────────────────────────────── */
 
-/* ── Page hero partagé (Catalogue, Favoris, Watchlist, Historique, Wishboard) ── */
+/* ── Page hero partagé (Catalogue, Favoris, Watchlist, Historique) ── */
 .page-hero {
     padding: 40px 0;
     text-align: center;
@@ -61,6 +61,7 @@
 
 .page-hero__search:focus-within {
     border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px rgba(var(--color-accent-rgb), 0.12);
 }
 
 .page-hero__search svg {
@@ -354,37 +355,49 @@
     }
 }
 
-/* ── Remove button ──────────────────────────────────────────────────────────── */
-.fav-remove-btn {
+/* ── Coin supérieur droit : (badge) + bouton retirer ───────────────────────── */
+.fav-corner {
     position: absolute;
     top: 6px;
     right: 6px;
     z-index: 10;
     display: flex;
     align-items: center;
-    justify-content: center;
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    background: rgba(0, 0, 0, .75);
-    border: 1px solid rgba(255, 255, 255, .12);
-    color: rgba(255, 255, 255, .8);
-    cursor: pointer;
-    opacity: 0;
-    transform: scale(.8);
-    transition: opacity .15s, transform .15s, background .15s, color .15s;
-    backdrop-filter: blur(4px);
+    gap: 6px;
 }
 
-.fav-card-wrap:hover .fav-remove-btn {
+/* Variante empilée (favoris / watchlist) : + / œil / croix en colonne */
+.fav-corner--stack {
+    flex-direction: column;
+    gap: 6px;
+}
+
+/* Boutons « + » / œil des cards, alignés dans le coin (pas en absolu) */
+.fav-corner .card__wl,
+.fav-corner .card__seen {
+    position: static;
     opacity: 1;
-    transform: scale(1);
+    flex-shrink: 0;
+}
+
+/* ── Remove button ──────────────────────────────────────────────────────────── */
+.fav-remove-btn {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: var(--radius-sm);
+    background: rgba(0, 0, 0, .75);
+    color: rgba(255, 255, 255, .8);
+    cursor: pointer;
+    transition: opacity .15s, transform .15s, background .15s, color .15s;
 }
 
 .fav-remove-btn:hover {
     background: rgba(220, 50, 50, .9);
     color: #fff;
-    border-color: transparent;
 }
 
 /* ── Empty state ────────────────────────────────────────────────────────────── */
@@ -440,6 +453,7 @@
 }
 
 @media (max-width: 700px) {
+
     /* Barre de contrôles : 2 lignes fixes */
     .fav-controls-bar__inner {
         flex-direction: column;

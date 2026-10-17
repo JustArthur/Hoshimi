@@ -142,6 +142,33 @@ class IndexManager
         return count($items);
     }
 
+    // ----------------------------------------------------------------
+    //  API publique — patch incrémental (ajout/màj de dossiers précis
+    //  sans reconstruire tout l'index ni recalculer le trending global)
+    // ----------------------------------------------------------------
+    public static function patchDirs(string $type, array $dirs): int
+    {
+        if (!isset(self::MEDIA_PATHS[$type])) {
+            throw new \InvalidArgumentException("Type inconnu : $type");
+        }
+
+        $dirs = array_values(array_filter($dirs, 'is_dir'));
+        if (empty($dirs)) {
+            return 0;
+        }
+
+        $indexFile = self::indexFile($type);
+        self::ensureDataDir();
+
+        // Pas d'index existant → rien à patcher, on construit tout
+        if (!file_exists($indexFile)) {
+            return self::regenerate($type);
+        }
+
+        self::patch($type, $indexFile, $dirs);
+        return count($dirs);
+    }
+
     // Ajoute ou met à jour uniquement les entrées correspondant aux $dirs fournis
     private static function patch(string $type, string $indexFile, array $dirs): void
     {
@@ -455,6 +482,8 @@ class IndexManager
 
     private static function fastEpisodeInfo(string $dir): array
     {
+        clearstatcache(true, $dir);
+
         $allFiles = [];
         foreach (self::VIDEO_EXT as $ext) {
             $allFiles = array_merge(

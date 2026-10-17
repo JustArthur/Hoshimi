@@ -1,6 +1,6 @@
 <?php
 /**
- * Composant page-hero — utilisé sur Catalogue, Favoris, Watchlist, Historique, Wishboard
+ * Composant page-hero — utilisé sur Catalogue, Favoris, Watchlist, Historique
  *
  * Variables attendues (définir avant l'include) :
  *   string  $heroTitle          Texte du <h1>                              (obligatoire)

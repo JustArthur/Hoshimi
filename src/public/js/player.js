@@ -21,6 +21,18 @@
 
     const SUBTITLES = cfg.subtitles || [];
 
+    // ── Indicateur de chargement (poster + spinner pendant le buffering) ───────
+    const bufferingEl = document.getElementById('hpl-buffering');
+    if (bufferingEl) {
+        const showBuffering = () => bufferingEl.classList.add('is-visible');
+        const hideBuffering = () => bufferingEl.classList.remove('is-visible');
+        player.on('waiting',   showBuffering);
+        player.on('seeking',   showBuffering);
+        player.on('loadstart', showBuffering);
+        player.on('playing',   hideBuffering);
+        player.on('canplay',   hideBuffering);
+    }
+
     // ── Volume + résumé + sous-titres ─────────────────────────────────────────
     player.ready(function () {
         const savedVol   = parseFloat(localStorage.getItem('hoshimi_volume') || '1');
@@ -100,8 +112,10 @@
         const menuMain       = document.getElementById('hpl-menu-main');
         const menuSubs       = document.getElementById('hpl-menu-subtitles');
         const menuSpeed      = document.getElementById('hpl-menu-speed');
+        const menuAudio      = document.getElementById('hpl-menu-audio');
         const curSubEl       = document.getElementById('hpl-cur-sub');
         const curSpeedEl     = document.getElementById('hpl-cur-speed');
+        const curAudioEl     = document.getElementById('hpl-cur-audio');
 
         let _activeSetting = { sub: false, speed: false };
         const updateSettingsDot = () => {
@@ -277,33 +291,54 @@
             }
         });
 
-        // ── Liste d'épisodes ──
-        const eplistBtn   = document.getElementById('hpl-eplist-btn');
-        const eplistPanel = document.getElementById('hpl-eplist-panel');
+        // ── Liste d'épisodes (bandeau latéral) ──
+        const eplistBtn      = document.getElementById('hpl-eplist-btn');
+        const eplistPanel    = document.getElementById('hpl-eplist-panel');
+        const eplistClose    = document.getElementById('hpl-eplist-close');
+        const eplistBody     = document.getElementById('hpl-eplist-body');
+        const seasonSelect   = document.getElementById('hpl-eplist-season-select');
+        const seasonBtn      = document.getElementById('hpl-eplist-season-btn');
+        const seasonBtnLabel = document.getElementById('hpl-eplist-season-btn-label');
+        const seasonBtnCount = document.getElementById('hpl-eplist-season-btn-count');
 
-        function closeEplist() { eplistPanel?.classList.remove('is-open'); }
-        function openEplist()  { eplistPanel?.classList.add('is-open'); closeSettings(); }
+        function closeEplist() { eplistPanel?.classList.remove('is-open'); seasonSelect?.classList.remove('is-open'); }
+        function openEplist()  {
+            eplistPanel?.classList.add('is-open');
+            closeSettings();
+            const active = eplistPanel?.querySelector('.hpl-eplist-card.is-active');
+            if (active) setTimeout(() => active.scrollIntoView({ block: 'center' }), 50);
+        }
 
         eplistBtn?.addEventListener('click', e => {
             e.stopPropagation();
             eplistPanel?.classList.contains('is-open') ? closeEplist() : openEplist();
         });
+        eplistClose?.addEventListener('click', e => { e.stopPropagation(); closeEplist(); });
+        eplistPanel?.addEventListener('click', e => e.stopPropagation());
 
-        // Tabs de saison
-        eplistPanel?.querySelectorAll('.hpl-eplist-season-tab').forEach(tab => {
-            tab.addEventListener('click', e => {
+        // Dropdown de sélection de saison
+        seasonBtn?.addEventListener('click', e => {
+            e.stopPropagation();
+            seasonSelect?.classList.toggle('is-open');
+        });
+        seasonSelect?.querySelectorAll('[data-season]').forEach(btn => {
+            btn.addEventListener('click', e => {
                 e.stopPropagation();
-                const sn = tab.dataset.season;
-                eplistPanel.querySelectorAll('.hpl-eplist-season-tab').forEach(t => t.classList.toggle('is-active', t.dataset.season === sn));
-                eplistPanel.querySelectorAll('.hpl-eplist-season').forEach(s => s.classList.toggle('is-visible', s.dataset.season === sn));
+                const sn = btn.dataset.season;
+
+                eplistPanel.querySelectorAll('.hpl-eplist-season-block').forEach(block => {
+                    block.classList.toggle('is-visible', block.dataset.season === sn);
+                });
+                seasonSelect.querySelectorAll('[data-season]').forEach(b => b.classList.toggle('is-active', b === btn));
+
+                if (seasonBtnLabel) seasonBtnLabel.textContent = btn.dataset.seasonLabel;
+                if (seasonBtnCount) seasonBtnCount.textContent = btn.dataset.seasonCount;
+
+                seasonSelect.classList.remove('is-open');
+                eplistBody.scrollTop = 0;
             });
         });
-
-        // Scroll vers l'épisode actif à l'ouverture
-        eplistBtn?.addEventListener('click', () => {
-            const active = eplistPanel?.querySelector('.hpl-eplist-item.is-active');
-            if (active) setTimeout(() => active.scrollIntoView({ block: 'center' }), 50);
-        });
+        document.addEventListener('click', () => seasonSelect?.classList.remove('is-open'));
 
         document.addEventListener('click', closeEplist);
         eplistPanel?.addEventListener('click', e => e.stopPropagation());
@@ -311,7 +346,7 @@
         // ── Settings — navigation entre sous-menus ──
         function showMenu(id, direction) {
             const incoming = document.getElementById('hpl-menu-' + id);
-            [menuMain, menuSubs, menuSpeed].forEach(m => {
+            [menuMain, menuSubs, menuSpeed, menuAudio].forEach(m => {
                 if (!m) return;
                 if (m === incoming) {
                     m.classList.add('is-visible');
@@ -360,20 +395,55 @@
         settingsPanel?.addEventListener('click', e => e.stopPropagation());
 
         // ── Sous-titres via le panneau ──
+        function selectSubtitle(idx) {
+            const tracks = player.textTracks();
+            for (let i = 0; i < tracks.length; i++) {
+                if (tracks[i].kind !== 'subtitles') continue;
+                const meta = SUBTITLES[idx];
+                tracks[i].mode = (meta && tracks[i].label === meta.label) ? 'showing' : 'disabled';
+            }
+            settingsPanel?.querySelectorAll('[data-track-idx]').forEach(b => {
+                b.classList.toggle('is-active', parseInt(b.dataset.trackIdx, 10) === idx);
+            });
+            if (curSubEl) curSubEl.textContent = idx === -1 ? 'Désactivés' : (SUBTITLES[idx]?.label ?? '');
+            _activeSetting.sub = idx !== -1;
+            updateSettingsDot();
+        }
+
         settingsPanel?.querySelectorAll('[data-track-idx]').forEach(btn => {
             btn.addEventListener('click', () => {
-                const idx    = parseInt(btn.dataset.trackIdx, 10);
-                const tracks = player.textTracks();
-                for (let i = 0; i < tracks.length; i++) {
-                    if (tracks[i].kind !== 'subtitles') continue;
-                    const meta = SUBTITLES[idx];
-                    tracks[i].mode = (meta && tracks[i].label === meta.label) ? 'showing' : 'disabled';
-                }
-                settingsPanel?.querySelectorAll('[data-track-idx]').forEach(b => b.classList.remove('is-active'));
+                selectSubtitle(parseInt(btn.dataset.trackIdx, 10));
+                showMenu('main', 'back');
+            });
+        });
+
+        // ── Audio via le panneau ──
+        const AUDIO_TRACKS = cfg.audioTracks || [];
+        const STREAM_URL   = cfg.streamUrl   || '';
+        settingsPanel?.querySelectorAll('[data-audio-idx]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const idx      = parseInt(btn.dataset.audioIdx, 10);
+                const wasPaused = player.paused();
+                const resumeAt  = player.currentTime();
+                const sep       = STREAM_URL.includes('?') ? '&' : '?';
+                player.src({ src: STREAM_URL + sep + 'audio=' + idx, type: player.currentType() });
+                player.one('loadedmetadata', function () {
+                    player.currentTime(resumeAt);
+                    if (!wasPaused) player.play();
+                });
+                settingsPanel?.querySelectorAll('[data-audio-idx]').forEach(b => b.classList.remove('is-active'));
                 btn.classList.add('is-active');
-                if (curSubEl) curSubEl.textContent = idx === -1 ? 'Désactivés' : (SUBTITLES[idx]?.label ?? '');
-                _activeSetting.sub = idx !== -1;
-                updateSettingsDot();
+                const meta = AUDIO_TRACKS.find(t => t.index === idx);
+                if (curAudioEl) curAudioEl.textContent = meta?.label ?? '';
+
+                // Audio non-FR → active automatiquement les sous-titres FR (si dispo)
+                // Audio FR → désactive les sous-titres (plus besoin)
+                if (meta?.lang && meta.lang !== 'fr') {
+                    const frSubIdx = SUBTITLES.findIndex(s => s.lang === 'fr');
+                    if (frSubIdx !== -1) selectSubtitle(frSubIdx);
+                } else if (meta?.lang === 'fr') {
+                    selectSubtitle(-1);
+                }
                 showMenu('main', 'back');
             });
         });

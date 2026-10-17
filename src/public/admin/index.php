@@ -203,7 +203,7 @@ if (file_exists($historyFile)) {
                 </div>
                 <div class="dash-donut-wrap">
                     <?php
-                    $typeColors = ['anime' => '#60a5fa', 'film' => '#c8a468', 'serie' => '#a78bfa'];
+                    $typeColors = ['anime' => 'var(--color-anime)', 'film' => 'var(--color-film)', 'serie' => 'var(--color-serie)'];
                     $circumference = 339.3; // 2π × 54
                     $offset = 0;
                     $segments = [];
@@ -273,7 +273,7 @@ if (file_exists($historyFile)) {
                     ] as [$t, $singular, $plural]):
                         $n = $counts[$t];
                     ?>
-                        <div class="dash-type-chip">
+                        <div class="dash-type-chip dash-type-chip--<?= $t ?>">
                             <span class="dash-type-chip__n"><?= $n ?></span>
                             <span class="dash-type-chip__label"><?= $n > 1 ? $plural : $singular ?></span>
                         </div>
@@ -551,15 +551,6 @@ if (file_exists($historyFile)) {
                     <button class="btn btn--ghost dash-maint-btn" id="btn-regen-index" style="font-size:0.8rem;padding:7px 14px">Régénérer l'index</button>
                     <span class="dash-maint-result" id="maint-regen-index-result"></span>
                 </div>
-                <div class="dash-maint-card">
-                    <div class="dash-maint-card__head">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2v-4M9 21H5a2 2 0 0 1-2-2v-4m0 0h18"/></svg>
-                        <strong>Wishboard</strong>
-                    </div>
-                    <p class="dash-maint-card__desc">Supprime toutes les demandes du wishboard de façon irréversible.</p>
-                    <button class="btn btn--ghost btn--red dash-maint-btn" id="btn-clear-wishboard" style="font-size:0.8rem;padding:7px 14px">Vider le wishboard</button>
-                    <span class="dash-maint-result" id="maint-wishboard-result"></span>
-                </div>
             </div>
         </div>
 
@@ -661,10 +652,6 @@ if (file_exists($historyFile)) {
 
         document.getElementById('btn-purge-webp').addEventListener('click', () => runMaintenance('purge_webp', 'btn-purge-webp', 'maint-webp-result'));
         document.getElementById('btn-purge-search').addEventListener('click', () => runMaintenance('purge_search', 'btn-purge-search', 'maint-search-result'));
-        document.getElementById('btn-clear-wishboard').addEventListener('click', async () => {
-            if (!await HoshimiConfirm.ask('Vider entièrement le wishboard ? Cette action est irréversible.', { confirm: 'Vider', type: 'danger' })) return;
-            runMaintenance('clear_wishboard', 'btn-clear-wishboard', 'maint-wishboard-result');
-        });
         document.getElementById('btn-regen-index').addEventListener('click', async () => {
             const btn = document.getElementById('btn-regen-index');
             const res = document.getElementById('maint-regen-index-result');

@@ -89,8 +89,8 @@ if ($canConvert && $acceptsWebp && function_exists('imagewebp')) {
         header('Vary: Accept');
         header('Content-Length: ' . filesize($webpPath));
         readfile($webpPath);
-        exit;
-    }
+    exit;
+}
 }
 
 // Envoyer l'image originale (fallback ou gif/webp natif)

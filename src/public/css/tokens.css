@@ -88,6 +88,10 @@
     --color-accent-glow: rgba(200, 164, 104, 0.25);
     --color-danger: #ef4444;
     --color-accent-text: #000;
+
+    --color-anime: #60a5fa;
+    --color-film: #c8a468;
+    --color-serie: #a1fa8b;
     
     /* Typographie */
     --font-main: 'Clash Grotesk', system-ui, sans-serif;
@@ -134,6 +138,9 @@ html {
     scroll-behavior: smooth;
     -webkit-text-size-adjust: 100%;
     overflow-x: hidden;
+    scrollbar-gutter: stable;
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border) transparent;
 }
 
 body {
@@ -180,6 +187,12 @@ textarea {
     font-size: inherit;
 }
 
+input:focus-within:not(.search-bar input):not(.page-hero__search input):not(.rename-list-search),
+textarea:focus-within {
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px rgba(var(--color-accent-rgb), 0.12);
+}
+
 h1,
 h2,
 h3,
@@ -215,16 +228,16 @@ h4 {
 }
 
 ::-webkit-scrollbar-track {
-    background: var(--color-bg);
+    background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-    background: var(--color-surface);
-    border-radius: var(--radius-sm);
+    background: var(--color-border);
+    border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: var(--color-accent);
+    background: var(--color-text-muted);
 }
 
 img,

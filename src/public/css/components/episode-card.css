@@ -28,28 +28,38 @@
     opacity: 0.72;
 }
 
-.episode-card.is-completed .episode-card__thumbnail::before {
-    content: '✓';
+.episode-card.is-completed .episode-card__progress-fill {
+    background: #22c55e;
+}
+
+/* Bouton « marquer comme vu » — haut-droite de la miniature */
+.episode-card__seen-btn {
     position: absolute;
     top: 6px;
     right: 6px;
-    width: 20px;
-    height: 20px;
-    background: #22c55e;
-    color: #fff;
-    font-size: 11px;
-    font-weight: 700;
-    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    padding: 0;
     display: flex;
     align-items: center;
     justify-content: center;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
     z-index: 4;
-    line-height: 20px;
-    text-align: center;
+    transition: opacity 0.15s ease, background 0.15s ease;
     box-shadow: 0 1px 4px rgba(0, 0, 0, .4);
 }
 
-.episode-card.is-completed .episode-card__progress-fill {
+.episode-card__seen-btn:hover {
+    background: rgba(0, 0, 0, 0.85);
+}
+
+.episode-card.is-completed .episode-card__seen-btn {
     background: #22c55e;
 }
 
@@ -116,11 +126,6 @@
 .episode-card.is-active .episode-card__play-icon {
     opacity: 1;
     transform: scale(1);
-}
-
-/* Thumbnail vide */
-.episode-card__thumbnail.is-empty {
-    background: linear-gradient(135deg, #0f0f0f 0%, #191919 100%);
 }
 
 .episode-card__placeholder-number {
@@ -238,8 +243,15 @@
     pointer-events: none;
 }
 
-.episode-card--upcoming .episode-card__thumbnail {
-    background: linear-gradient(135deg, #0d0d0d 0%, #161616 100%);
+.episode-card--upcoming .episode-card__thumbnail,
+.episode-card__thumbnail.is-empty {
+  background: repeating-linear-gradient(
+    135deg,
+    #0d0d0d 0px,
+    #0d0d0d 30px,
+    #0f0f0f 30px,
+    #0f0f0f 60px
+  );
 }
 
 .episode-card__still-blur {

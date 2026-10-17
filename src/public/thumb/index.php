@@ -13,7 +13,7 @@ $imagesPath = $_ENV['IMAGES_PATH'] ?? '/var/www/html/public/images';
 $thumbDir   = rtrim($imagesPath, '/') . '/thumbnails';
 
 $path      = $_GET['path'] ?? '';
-$maxWidth  = max(80, min(480, (int)($_GET['w'] ?? 0)));
+$maxWidth  = isset($_GET['w']) ? max(80, min(480, (int)$_GET['w'])) : 0;
 
 if ($path === '') {
     http_response_code(400);
