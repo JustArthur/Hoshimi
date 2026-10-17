@@ -108,31 +108,52 @@
     background: rgba(0, 0, 0, 0.35);
 }
 
-/* Score badge — haut droite */
-.card__score {
+/* Boutons « Watchlist » (+) et « Déjà vu » (œil) — haut droite, empilés */
+.card__wl,
+.card__seen {
     position: absolute;
     top: 10px;
     right: 10px;
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    height: 22px;
-    padding: 0 8px;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: none;
     border-radius: var(--radius-sm);
-    background: rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    background: rgba(0, 0, 0, 0.7);
     color: #fff;
-    font-size: 0.7rem;
-    font-weight: 600;
-    z-index: 4;
-    letter-spacing: 0.01em;
+    cursor: pointer;
+    z-index: 5;
+    opacity: 1;
+    transition: opacity 0.15s ease, background 0.15s ease;
 }
 
-.card__score-star {
-    color: #f59e0b;
-    font-size: 0.65rem;
-    line-height: 1;
+.card__seen {
+    top: 42px;
+}
+
+.card__wl:hover,
+.card__seen:hover {
+    color: var(--color-accent);
+}
+
+.card__wl.is-in-wl {
+    background: var(--color-accent);
+    color: #000;
+}
+
+.card__seen.is-seen {
+    background: #22c55e;
+}
+
+.card__wl.is-in-wl:hover {
+    color: #000;
+}
+
+.card__seen.is-seen:hover {
+    color: #fff;
 }
 
 .card__trending {
@@ -151,6 +172,27 @@
     font-size: 0.6rem;
     font-weight: 700;
     letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border-radius: var(--radius-sm);
+}
+
+/* Badge « Vu » — haut gauche (watchlist) */
+.card__seen-badge {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    z-index: 4;
+    height: 22px;
+    pointer-events: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 8px;
+    background: #22c55e;
+    color: #000;
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
     border-radius: var(--radius-sm);
 }
@@ -266,7 +308,7 @@
     gap: 5px;
 }
 
-.card__score,
+.card__seen,
 .card__badge {
     z-index: 4;
 }
@@ -290,19 +332,17 @@
     gap: 6px;
 }
 
-.card__meta-badge {
-    font-size: 0.67rem;
-    font-weight: 500;
-    color: rgba(255, 255, 255, 0.6);
-    background: rgba(255, 255, 255, 0.1);
-    padding: 1px 8px;
-    border-radius: 3px;
-    letter-spacing: 0.02em;
-}
-
-.card__meta-year {
+.card__meta-year,
+.card__meta-sep,
+.card__meta-score {
     font-size: 0.67rem;
     color: rgba(255, 255, 255, 0.45);
+}
+
+.card__meta-score {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
 }
 
 /* Badges langue */
@@ -491,10 +531,10 @@
     right: 6px;
     width: 24px;
     height: 24px;
-    border-radius: 50%;
+    border-radius: var(--radius-sm);
     background: color-mix(in srgb, var(--color-bg) 80%, transparent);
     border: none;
-    color: var(--color-text-muted);
+    color: var(--color-text);
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -507,10 +547,6 @@
 
 .resume-card:hover .resume-card__dismiss {
     opacity: 1;
-}
-
-.resume-card__dismiss:hover {
-    color: var(--color-text);
 }
 
 /* Progress bar */
@@ -610,29 +646,27 @@
 }
 
 
-.grid-cards--7 {
-    grid-template-columns: repeat(7, minmax(0, 1fr));
+.grid-cards--6 {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
 }
 
 @media (max-width: 1200px) {
-    .grid-cards {
+    .grid-cards,
+    .grid-cards--6 {
         grid-template-columns: repeat(4, minmax(0, 1fr));
-    }
-    .grid-cards--7 {
-        grid-template-columns: repeat(5, minmax(0, 1fr));
     }
 }
 
 @media (max-width: 760px) {
     .grid-cards,
-    .grid-cards--7 {
+    .grid-cards--6 {
         grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 }
 
 @media (max-width: 530px) {
     .grid-cards,
-    .grid-cards--7 {
+    .grid-cards--6 {
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 10px;
     }
@@ -653,6 +687,64 @@
 
 .grid-cards--row::-webkit-scrollbar {
     display: none;
+}
+
+/* Slider home : les cartes sortent du conteneur (pleine largeur d'écran),
+   la première carte reste alignée sur le contenu. Boutons ‹ › en overlay. */
+.row-slider {
+    --edge: calc(max(0px, (100vw - var(--max-width)) / 2) + var(--gutter));
+    position: relative;
+    margin-inline: calc(50% - 50vw);
+}
+
+.row-slider .grid-cards--row {
+    padding-inline: var(--edge);
+    scroll-padding-inline: var(--edge);
+}
+
+.row-slider__btn {
+    position: absolute;
+    top: 130px; /* milieu de l'affiche */
+    transform: translateY(-50%);
+    z-index: 5;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: rgba(0, 0, 0, .7);
+    backdrop-filter: blur(6px);
+    color: #fff;
+    cursor: pointer;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .2s, background .15s, transform .15s;
+}
+
+/* Visibles au survol de la catégorie (section entière) */
+section:hover .row-slider__btn,
+.row-slider__btn:focus-visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.row-slider__btn[hidden] {
+    display: none;
+}
+
+.row-slider__btn:hover {
+    background: rgba(0, 0, 0, .9);
+    transform: translateY(-50%) scale(1.08);
+}
+
+.row-slider__btn--prev { left: var(--edge); }
+.row-slider__btn--next { right: var(--edge); }
+
+@media (max-width: 768px) {
+    .row-slider { --edge: 16px; }
+    .row-slider__btn { display: none !important; } /* swipe tactile */
 }
 
 .grid-cards--row .card {
@@ -709,46 +801,3 @@
 }
 
 
-/* ── Bouton créer dossier (card unavailable) ──────────────────────────────── */
-
-.card--unavailable {
-    position: relative;
-}
-
-.card__create-btn {
-    position: absolute;
-    bottom: 8px;
-    left: 8px;
-    right: 8px;
-    z-index: 10;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    padding: 6px 10px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    background: var(--color-accent);
-    color: #fff;
-    border: none;
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    transform: translateY(4px);
-    opacity: 0;
-    transition: opacity 0.15s, transform 0.15s;
-}
-
-.card--unavailable:hover .card__create-btn {
-    opacity: 1;
-    transform: translateY(0);
-}
-
-.card__create-btn:disabled {
-    opacity: 0.6;
-    cursor: default;
-}
-
-.card--created {
-    outline: 2px solid var(--color-accent);
-    outline-offset: -2px;
-}

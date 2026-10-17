@@ -260,7 +260,14 @@ function heroLogoUrl(array $item, string $type): ?string
                                         </svg>
                                         Regarder
                                     </a>
-                                    <a href="<?= htmlspecialchars($fi_url) ?>" class="btn btn--ghost">Voir la fiche</a>
+                                    <a href="<?= htmlspecialchars($fi_url) ?>" class="btn btn--ghost">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-info" aria-hidden="true">
+                                            <circle cx="12" cy="12" r="10"></circle>
+                                            <path d="M12 16v-4"></path>
+                                            <path d="M12 8h.01"></path>
+                                        </svg>
+                                        Voir la fiche
+                                    </a>
                                 </div>
                             </div>
                         </div>
@@ -315,16 +322,48 @@ function heroLogoUrl(array $item, string $type): ?string
                     <div class="resume-row" id="resume-list"></div>
                 </div>
 
+                <section id="because-section" style="display:none; margin-bottom:48px;">
+                    <div class="section-header">
+                        <div class="section-header__bar"></div>
+                        <div class="section-header__inner">
+                            <span class="section-header__type">Pour toi</span>
+                            <h2 class="section-header__title" id="because-title">Parce que tu as regardé…</h2>
+                        </div>
+                        <div class="section-header__line"></div>
+                    </div>
+                    <div class="row-slider">
+                        <button type="button" class="row-slider__btn row-slider__btn--prev" aria-label="Précédent" hidden><?= lc('chevron-left', 20) ?></button>
+                        <div class="grid-cards grid-cards--row" id="because-grid"></div>
+                        <button type="button" class="row-slider__btn row-slider__btn--next" aria-label="Suivant" hidden><?= lc('chevron-right', 20) ?></button>
+                    </div>
+                </section>
+
                 <?php if (!empty($latestAnimes)) : ?>
-                    <?php $sectionType = 'Anime'; $sectionTitle = 'Derniers ajouts'; $sectionHref = '/catalog/?type=anime'; $sectionItemType = 'anime'; $sectionItems = $latestAnimes; $sectionDataAttrKey = 'anime-slug'; include __DIR__ . '/components/media-section.php'; ?>
+                    <?php $sectionType = 'Anime';
+                    $sectionTitle = 'Derniers ajouts';
+                    $sectionHref = '/catalog/?type=anime';
+                    $sectionItemType = 'anime';
+                    $sectionItems = $latestAnimes;
+                    $sectionDataAttrKey = 'anime-slug';
+                    include __DIR__ . '/components/media-section.php'; ?>
                 <?php endif; ?>
 
                 <?php if (!empty($latestSeries)) : ?>
-                    <?php $sectionType = 'Série'; $sectionTitle = 'Derniers ajouts'; $sectionHref = '/catalog/?type=serie'; $sectionItemType = 'serie'; $sectionItems = $latestSeries; include __DIR__ . '/components/media-section.php'; ?>
+                    <?php $sectionType = 'Série';
+                    $sectionTitle = 'Derniers ajouts';
+                    $sectionHref = '/catalog/?type=serie';
+                    $sectionItemType = 'serie';
+                    $sectionItems = $latestSeries;
+                    include __DIR__ . '/components/media-section.php'; ?>
                 <?php endif; ?>
 
                 <?php if (!empty($latestFilms)) : ?>
-                    <?php $sectionType = 'Film'; $sectionTitle = 'Nouveautés'; $sectionHref = '/catalog/?type=film'; $sectionItemType = 'film'; $sectionItems = $latestFilms; include __DIR__ . '/components/media-section.php'; ?>
+                    <?php $sectionType = 'Film';
+                    $sectionTitle = 'Derniers ajouts';
+                    $sectionHref = '/catalog/?type=film';
+                    $sectionItemType = 'film';
+                    $sectionItems = $latestFilms;
+                    include __DIR__ . '/components/media-section.php'; ?>
                 <?php endif; ?>
 
                 <?php if (empty($latestAnimes) && empty($latestSeries) && empty($latestFilms)) : ?>
@@ -362,7 +401,7 @@ function heroLogoUrl(array $item, string $type): ?string
     <?php include __DIR__ . "/components/footer.php"; ?>
 
     <?php if ($_debugMode): ?>
-    <?php
+        <?php
         $_tEnd  = microtime(true);
         $_meta  = IndexManager::getMeta();
         $_tTotal = round(($_tEnd - $_t0) * 1000, 1);
@@ -370,40 +409,40 @@ function heroLogoUrl(array $item, string $type): ?string
         $_tS    = $is_home ? round((($_tSerie ?? $_tAnime) - $_tAnime) * 1000, 1) : null;
         $_tF    = $is_home ? round((($_tFilm  ?? $_tAnime) - ($_tSerie ?? $_tAnime)) * 1000, 1) : null;
         $ttl    = null; // pas de TTL — regen par watcher/polling
-    ?>
-    <div id="im-debug" style="position:fixed;bottom:16px;right:16px;z-index:9999;background:rgba(0,0,0,.88);color:#e2e8f0;font:12px/1.5 monospace;padding:14px 18px;border-radius:8px;border:1px solid rgba(255,255,255,.12);max-width:340px;backdrop-filter:blur(8px);box-shadow:0 4px 24px rgba(0,0,0,.5)">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-            <strong style="font-size:13px;color:#fff">IndexManager debug</strong>
-            <button onclick="this.closest('#im-debug').remove()" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:16px;line-height:1;padding:0">×</button>
+        ?>
+        <div id="im-debug" style="position:fixed;bottom:16px;right:16px;z-index:9999;background:rgba(0,0,0,.88);color:#e2e8f0;font:12px/1.5 monospace;padding:14px 18px;border-radius:8px;border:1px solid rgba(255,255,255,.12);max-width:340px;backdrop-filter:blur(8px);box-shadow:0 4px 24px rgba(0,0,0,.5)">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+                <strong style="font-size:13px;color:#fff">IndexManager debug</strong>
+                <button onclick="this.closest('#im-debug').remove()" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:16px;line-height:1;padding:0">×</button>
+            </div>
+            <table style="width:100%;border-collapse:collapse">
+                <tr style="color:#94a3b8;font-size:11px">
+                    <th style="text-align:left;padding:2px 6px 6px 0">type</th>
+                    <th style="text-align:right;padding:2px 0 6px">items</th>
+                    <th style="text-align:right;padding:2px 0 6px 8px">âge</th>
+                    <th style="text-align:right;padding:2px 0 6px 8px">source</th>
+                </tr>
+                <?php foreach ($_meta as $type => $m): ?>
+                    <?php
+                    $age    = $m['exists'] ? (time() - $m['generated_ts']) : null;
+                    $stale  = $m['stale'] ?? true;
+                    $color  = !$m['exists'] ? '#f87171' : '#4ade80';
+                    $ageStr = $age !== null ? ($age < 60 ? $age . 's' : round($age / 60, 1) . 'm') : '—';
+                    ?>
+                    <tr>
+                        <td style="padding:3px 6px 3px 0;color:<?= $color ?>"><?= $type ?></td>
+                        <td style="text-align:right;padding:3px 0"><?= $m['exists'] ? $m['count'] : '—' ?></td>
+                        <td style="text-align:right;padding:3px 0 3px 8px;color:#94a3b8"><?= $ageStr ?></td>
+                        <td style="text-align:right;padding:3px 0 3px 8px;color:#64748b"><?= $m['exists'] ? round($m['size_kb'], 1) . 'kb' : 'scanner' ?></td>
+                    </tr>
+                <?php endforeach; ?>
+            </table>
+            <div style="border-top:1px solid rgba(255,255,255,.08);margin-top:8px;padding-top:8px;color:#94a3b8;font-size:11px">
+                <div>⏱ total requête : <span style="color:#fff"><?= $_tTotal ?>ms</span></div>
+                <div>anime: <span style="color:#fff"><?= $_tA ?>ms</span><?php if ($is_home): ?> · serie: <span style="color:#fff"><?= $_tS ?>ms</span> · film: <span style="color:#fff"><?= $_tF ?>ms</span><?php endif; ?></div>
+                <div style="margin-top:6px;color:#475569">TTL: ∞ (watcher) · <a href="?" style="color:#64748b">sans debug</a> · <a href="/admin/api/regen-index.php?type=all" target="_blank" style="color:#64748b">regen</a></div>
+            </div>
         </div>
-        <table style="width:100%;border-collapse:collapse">
-            <tr style="color:#94a3b8;font-size:11px">
-                <th style="text-align:left;padding:2px 6px 6px 0">type</th>
-                <th style="text-align:right;padding:2px 0 6px">items</th>
-                <th style="text-align:right;padding:2px 0 6px 8px">âge</th>
-                <th style="text-align:right;padding:2px 0 6px 8px">source</th>
-            </tr>
-            <?php foreach ($_meta as $type => $m): ?>
-            <?php
-                $age    = $m['exists'] ? (time() - $m['generated_ts']) : null;
-                $stale  = $m['stale'] ?? true;
-                $color  = !$m['exists'] ? '#f87171' : '#4ade80';
-                $ageStr = $age !== null ? ($age < 60 ? $age.'s' : round($age/60,1).'m') : '—';
-            ?>
-            <tr>
-                <td style="padding:3px 6px 3px 0;color:<?= $color ?>"><?= $type ?></td>
-                <td style="text-align:right;padding:3px 0"><?= $m['exists'] ? $m['count'] : '—' ?></td>
-                <td style="text-align:right;padding:3px 0 3px 8px;color:#94a3b8"><?= $ageStr ?></td>
-                <td style="text-align:right;padding:3px 0 3px 8px;color:#64748b"><?= $m['exists'] ? round($m['size_kb'],1).'kb' : 'scanner' ?></td>
-            </tr>
-            <?php endforeach; ?>
-        </table>
-        <div style="border-top:1px solid rgba(255,255,255,.08);margin-top:8px;padding-top:8px;color:#94a3b8;font-size:11px">
-            <div>⏱ total requête : <span style="color:#fff"><?= $_tTotal ?>ms</span></div>
-            <div>anime: <span style="color:#fff"><?= $_tA ?>ms</span><?php if ($is_home): ?> · serie: <span style="color:#fff"><?= $_tS ?>ms</span> · film: <span style="color:#fff"><?= $_tF ?>ms</span><?php endif; ?></div>
-            <div style="margin-top:6px;color:#475569">TTL: ∞ (watcher) · <a href="?" style="color:#64748b">sans debug</a> · <a href="/admin/api/regen-index.php?type=all" target="_blank" style="color:#64748b">regen</a></div>
-        </div>
-    </div>
     <?php endif; ?>
 
     <script src="/js/navbar.js"></script>
@@ -415,50 +454,69 @@ function heroLogoUrl(array $item, string $type): ?string
 
     <script src="/js/favorites.js"></script>
     <?php if ($is_home) : ?>
-    <script>
-        // Stale-while-revalidate : affiche le cache immédiatement, rafraîchit en arrière-plan
-        (function () {
-            const CACHE_KEY = 'hoshimi_shows_index';
-            const CACHE_TTL = 5 * 60 * 1000; // 5 min
+        <script>
+            // Stale-while-revalidate : affiche le cache immédiatement, rafraîchit en arrière-plan
+            (function() {
+                const CACHE_KEY = 'hoshimi_shows_index';
+                const CACHE_TTL = 5 * 60 * 1000; // 5 min
 
-            function loadResume(data) {
-                if (window.__resumeLoaded) return;
-                window.__resumeLoaded = true;
-                window.allShowsData = data;
-                const s = document.createElement('script');
-                s.src = '/js/resume.js';
-                document.body.appendChild(s);
-            }
-
-            let cached = null;
-            try {
-                const raw = localStorage.getItem(CACHE_KEY);
-                if (raw) {
-                    const parsed = JSON.parse(raw);
-                    if (Date.now() - parsed.ts < CACHE_TTL) cached = parsed.data;
+                function loadResume(data) {
+                    if (window.__resumeLoaded) return;
+                    window.__resumeLoaded = true;
+                    window.allShowsData = data;
+                    const s = document.createElement('script');
+                    s.src = '/js/resume.js';
+                    document.body.appendChild(s);
+                    const b = document.createElement('script');
+                    b.src = '/js/because-watched.js';
+                    document.body.appendChild(b);
                 }
-            } catch {}
 
-            if (cached) loadResume(cached);
+                let cached = null;
+                try {
+                    const raw = localStorage.getItem(CACHE_KEY);
+                    if (raw) {
+                        const parsed = JSON.parse(raw);
+                        if (Date.now() - parsed.ts < CACHE_TTL) cached = parsed.data;
+                    }
+                } catch {}
 
-            const _progKeys = Object.keys((() => { try { return JSON.parse(localStorage.getItem('hoshimi_progress') ?? '{}'); } catch { return {}; } })());
-            fetch('/api/shows-index.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ file_keys: _progKeys }),
-            })
-                .then(r => r.json())
-                .then(data => {
-                    try { localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data })); } catch {}
-                    if (!cached) loadResume(data);
-                })
-                .catch(() => {});
-        })();
-    </script>
+                if (cached) loadResume(cached);
+
+                const _progKeys = Object.keys((() => {
+                    try {
+                        return JSON.parse(localStorage.getItem('hoshimi_progress') ?? '{}');
+                    } catch {
+                        return {};
+                    }
+                })());
+                fetch('/api/shows-index.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            file_keys: _progKeys
+                        }),
+                    })
+                    .then(r => r.json())
+                    .then(data => {
+                        try {
+                            localStorage.setItem(CACHE_KEY, JSON.stringify({
+                                ts: Date.now(),
+                                data
+                            }));
+                        } catch {}
+                        if (!cached) loadResume(data);
+                    })
+                    .catch(() => {});
+            })();
+        </script>
     <?php else : ?>
-    <script src="/js/resume.js"></script>
+        <script src="/js/resume.js"></script>
     <?php endif; ?>
     <script src="/js/parallax.js"></script>
+    <?php if ($is_home) : ?><script src="/js/row-slider.js"></script><?php endif; ?>
     <?php if ($is_home && count($heroItems) > 1) : ?>
         <script>
             (function() {

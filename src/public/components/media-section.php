@@ -23,10 +23,14 @@ $sectionDataAttrKey ??= null;
         <div class="section-header__line"></div>
         <a href="<?= htmlspecialchars($sectionHref) ?>" class="section-header__link">Voir tout <?= lc('arrow-right', 12) ?></a>
     </div>
-    <div class="grid-cards grid-cards--row">
-        <?php foreach ($sectionItems as $_item) : ?>
-            <?= render_card($_item, $sectionItemType, $sectionDataAttrKey ? ['data_attrs' => [$sectionDataAttrKey => $_item['slug']]] : []) ?>
-        <?php endforeach; ?>
+    <div class="row-slider">
+        <button type="button" class="row-slider__btn row-slider__btn--prev" aria-label="Précédent" hidden><?= lc('chevron-left', 20) ?></button>
+        <div class="grid-cards grid-cards--row">
+            <?php foreach ($sectionItems as $_item) : ?>
+                <?= render_card($_item, $sectionItemType, $sectionDataAttrKey ? ['data_attrs' => [$sectionDataAttrKey => $_item['slug']]] : []) ?>
+            <?php endforeach; ?>
+        </div>
+        <button type="button" class="row-slider__btn row-slider__btn--next" aria-label="Suivant" hidden><?= lc('chevron-right', 20) ?></button>
     </div>
 </section>
 <?php unset($sectionType, $sectionTitle, $sectionHref, $sectionItemType, $sectionItems, $sectionDataAttrKey, $_item); ?>
